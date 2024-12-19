@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "qr_code_generator"
+name = "DEWQ"
 version = "0.1.0"

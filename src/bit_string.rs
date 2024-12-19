@@ -43,7 +43,7 @@ impl BitString {
             Bit::Zero => {},
             Bit::One => {
                 if let Some(byte) = self.bits.last_mut() {
-                    *byte = *byte | (1 << bit_offset);
+                    *byte |= 1 << bit_offset;
                 }
             }
         }
@@ -63,19 +63,21 @@ impl BitString {
             _ => Ok(Bit::One),
         }
     }
+
+    pub fn len(&self) -> usize {
+        self.bits_len
+    }
 }
 
 impl Display for BitString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for byte in self.bits.iter() {
-            for i in 0..8 {
-                write!(f, "{}", ((*byte & (1 << i)) >> i))?;
-            }
+        for i in 0..self.bits_len {
+            write!(f, "{}", if self.get_bit(i).unwrap() == Bit::One { 1 } else { 0 })?;
         }
-
         Ok(())
     }
 }
+
 
 #[derive(Debug, Clone)]
 pub struct BitAddressOutOfBoundsError;

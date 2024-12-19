@@ -1,11 +1,13 @@
-use bit_string::{Bit, BitString};
-use qr_code::{Encodable, QRMode};
+use qr_code::{ErrorCorrectionLevel, QRMode};
 
 mod qr_code;
 mod bit_string;
 
 fn main() {
     let my_qr = QRMode::analyze_data("HELLO WORLD");
-
-    println!("{}", my_qr.encode());
+    // my_qr.encode(ErrorCorrectionLevel::L);
+    
+    let bits = my_qr.encode(ErrorCorrectionLevel::L);
+    println!("{}", bits);
+    println!("length: {}", bits.len());
 }

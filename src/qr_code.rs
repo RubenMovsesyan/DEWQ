@@ -1,28 +1,112 @@
 use crate::bit_string::*;
 
-pub enum QRCode {
-    Model2(QRCodeModel2),
-}
+// Constants
 
-pub trait Encodable {
-    fn encode(&self) -> BitString;
-}
+const MAX_VERSION: usize = 40;
+// the total number of codewords for each error correction level
+// index 0 = Version 1
+// index 39 = Version 40
+const L_NUM_CODEWORDS: [usize; MAX_VERSION] = [
+    19,
+    34,
+    55,
+    80,
+    108,
+    136,
+    156,
+    194,
+    232,
+    274,
+    324,
+    370,
+    428,
+    461,
+    523,
+    589,
+    647,
+    721,
+    795,
+    861,
+    932,
+    1006,
+    1094,
+    1174,
+    1276,
+    1370,
+    1468,
+    1531,
+    1631,
+    1735,
+    1843,
+    1955,
+    2071,
+    2191,
+    2306,
+    2434,
+    2566,
+    2702,
+    2812,
+    2956,
+];
 
-pub struct QRCodeModel2 {
-    mode: QRMode,
-}
+// TODO:
+// const M_NUM_CODEWORDS
+// const Q_NUM_CODEWORDS
+// const H_NUM_CODEWORDS
 
-impl QRCodeModel2 {
-    pub fn from(mode: QRMode) -> QRCodeModel2 {
-        QRCodeModel2 {
-            mode
-        }
-    }
 
-    pub fn get_encoding(&self) -> BitString {
-        self.mode.encode()
-    }
-}
+const ALPHA_NUMERIC_L_MAX_CAPACITY: [usize; MAX_VERSION] = [
+    25,
+    47,
+    77,
+    114,
+    154,
+    195,
+    224,
+    279,
+    335,
+    395,
+    468,
+    535,
+    619,
+    667,
+    758,
+    854,
+    938,
+    1046,
+    1153,
+    1249,
+    1352,
+    1460,
+    1588,
+    1704,
+    1853,
+    1990,
+    2132,
+    2223,
+    2369,
+    2520,
+    2677,
+    2840,
+    3009,
+    3183,
+    3351,
+    3537,
+    3729,
+    3927,
+    4087,
+    4296,
+];
+
+// TODO:
+// const ALPHA_NUMERIC_M_MAX_CAPACITY
+// const ALPHA_NUMERIC_Q_MAX_CAPACITY
+// const ALPHA_NUMERIC_H_MAX_CAPACITY
+
+// TODO:
+// NUMERIC
+// BYTE
+// KANJI
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum QRMode {
@@ -30,6 +114,13 @@ pub enum QRMode {
     AlphaNumeric(Vec<u8>),
     Byte(Vec<u8>),
     // Kanji(Vec<u16>), // Double byte mode
+}
+
+pub enum ErrorCorrectionLevel {
+    L,
+    M,
+    Q,
+    H,
 }
 
 // ------------------ Helper functions ----------------------
@@ -73,7 +164,7 @@ impl QRMode {
             for i in 0..converted_input.len() {
                 // This is to bypass any unnecessary checking
                 unsafe {
-                    digit_buffer.push(converted_input[i..(i + 1)].parse().unwrap_unchecked());
+                    digit_buffer.push(converted_input[i..=i].parse().unwrap_unchecked());
                 }
             }
             return QRMode::Numeric(digit_buffer);
@@ -104,11 +195,9 @@ impl QRMode {
 
         todo!()
     }
-}
+    
 
-
-impl Encodable for QRMode {
-    fn encode(&self) -> BitString {
+    pub fn encode(&self, error_correction_level: ErrorCorrectionLevel) -> BitString {
         let mut bit_string: BitString = BitString::new();
         match self {
             QRMode::Numeric(numbers) => {
@@ -120,10 +209,48 @@ impl Encodable for QRMode {
                 bit_string.push_bit(0);
                 bit_string.push_bit(1);
                 bit_string.push_bit(0);
+                
+                let version = {
+                    match error_correction_level {
+                        ErrorCorrectionLevel::L => {
+                            let mut out: usize = 0;
+                            for version_index in (0..MAX_VERSION).rev() {
+                                if alpha_numeric_values.len() > ALPHA_NUMERIC_L_MAX_CAPACITY[version_index] {
+                                    out = version_index + 1;
+                                    break;
+                                }
+                            }
+
+                            out
+                        },
+                        ErrorCorrectionLevel::M => {
+                            todo!()
+                        },
+                        ErrorCorrectionLevel::Q => {
+                            todo!()
+                        },
+                        ErrorCorrectionLevel::H => {
+                            todo!()
+                        },
+                    }
+                };
+
+                let size_of_character_length_bits = {
+                    let out: usize;
+                    if (version + 1) < 10 {
+                        out = 9;
+                    } else if (version + 1) > 9 && (version + 1) < 27 {
+                        out = 11;
+                    } else {
+                        out = 13
+                    }
+
+                    out
+                };
 
                 // Currently only versions 1 through 9 supported
                 // Encode the character count
-                for i in (0..9).rev() {
+                for i in (0..size_of_character_length_bits).rev() {
                     bit_string.push_bit((alpha_numeric_values.len() & (1 << i)) as i32);
                 }
 
@@ -151,6 +278,65 @@ impl Encodable for QRMode {
                         }
                     }
                 }
+
+                // Add terminator 0s if necessary
+                let required_number_of_bits = {
+                    match error_correction_level {
+                        ErrorCorrectionLevel::L => {
+                            L_NUM_CODEWORDS[version] * 8
+                        },
+                        ErrorCorrectionLevel::M => {
+                            todo!()
+                        },
+                        ErrorCorrectionLevel::Q => {
+                            todo!()
+                        },
+                        ErrorCorrectionLevel::H => {
+                            todo!()
+                        },
+                    }
+                };
+
+                let total_bits = bit_string.len() - 4 - (size_of_character_length_bits);
+                let bit_difference = required_number_of_bits - total_bits;
+
+                for _ in 0..bit_difference.min(4) {
+                    bit_string.push_bit(0);
+                }
+
+                // Make sure the bitstring is a multiple of 8
+                while bit_string.len() % 8 != 0 {
+                    bit_string.push_bit(0);
+                }
+                
+                // Add the necessary pad bytes
+                while bit_string.len() < required_number_of_bits {
+                    // append binary 236
+                    bit_string.push_bit(1);
+                    bit_string.push_bit(1);
+                    bit_string.push_bit(1);
+                    bit_string.push_bit(0);
+                    bit_string.push_bit(1);
+                    bit_string.push_bit(1);
+                    bit_string.push_bit(0);
+                    bit_string.push_bit(0);
+
+                    // Check if the bitsting is long enough
+                    if bit_string.len() >= required_number_of_bits {
+                        break;
+                    }
+
+                    // append binary 17
+                    bit_string.push_bit(0);
+                    bit_string.push_bit(0);
+                    bit_string.push_bit(0);
+                    bit_string.push_bit(1);
+                    bit_string.push_bit(0);
+                    bit_string.push_bit(0);
+                    bit_string.push_bit(0);
+                    bit_string.push_bit(1);
+                }
+
 
                 return bit_string;
             },
