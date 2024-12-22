@@ -554,7 +554,7 @@ impl GeneratorPolynomial {
 
         for (i, coefficient) in self.coefficients.iter().enumerate() {
             for (j, other_coeff) in other.coefficients.iter().enumerate() {
-                output[i + j] ^= galios_reduction((i32::abs(*coefficient + *other_coeff) % 255) as u32) as i32;
+                output[i + j] ^= LOG_TABLE[((i32::abs(*coefficient + *other_coeff) % 255) as u32) as usize] as i32;
             }
         }
         
@@ -570,24 +570,22 @@ impl GeneratorPolynomial {
     }
 }
 
-fn galios_256(number: u32) -> u8 {
-    ((number % 256) + (number / 256)) as u8
-}
-
-fn galios_reduction(exponent: u32) -> u8 {
-    let mut value;
-    if exponent > 7 {
-        value = galios_reduction(exponent - 1) as u32 * 2;
-    } else {
-        value = 2_u32.pow(exponent);
-    }
-
-    if value > 255 {
-        value ^= 285;
-    }
-
-    value as u8
-}
+// This could be useful in the future but for now the 
+// log antilog tables are a much better approach
+// fn galios_reduction(exponent: u32) -> u8 {
+//     let mut value;
+//     if exponent > 7 {
+//         value = galios_reduction(exponent - 1) as u32 * 2;
+//     } else {
+//         value = 2_u32.pow(exponent);
+//     }
+// 
+//     if value > 255 {
+//         value ^= 285;
+//     }
+// 
+//     value as u8
+// }
 
 
 #[cfg(test)]
@@ -595,18 +593,18 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_galios_256() {
-        assert_eq!(6, galios_256(261));
-    }
+    // fn test_galios_256() {
+    //     assert_eq!(6, galios_256(261));
+    // }
 
     #[test]
-    fn test_galios_reduction() {
-        assert_eq!(29, galios_reduction(8));
-        assert_eq!(58, galios_reduction(9));
-        assert_eq!(116, galios_reduction(10));
-        assert_eq!(232, galios_reduction(11));
-        assert_eq!(205, galios_reduction(12));
-    }
+    // fn test_galios_reduction() {
+    //     assert_eq!(29, galios_reduction(8));
+    //     assert_eq!(58, galios_reduction(9));
+    //     assert_eq!(116, galios_reduction(10));
+    //     assert_eq!(232, galios_reduction(11));
+    //     assert_eq!(205, galios_reduction(12));
+    // }
 
     #[test]
     fn test_polynomial_multiply() {
