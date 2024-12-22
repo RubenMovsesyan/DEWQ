@@ -3,4 +3,9 @@ name = "DEWQ"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "DEWQ"
+path = "src/lib.rs"
+
 [dependencies]
+non_std = "0.1.4"

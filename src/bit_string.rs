@@ -1,4 +1,14 @@
+use non_std::Vec;
+
+#[cfg(test)]
+extern crate std;
+
+#[cfg(test)]
 use std::fmt::Display;
+
+#[cfg(test)]
+#[macro_use]
+use std::format;
 
 pub struct BitString {
     bits: Vec<u8>,
@@ -50,6 +60,16 @@ impl BitString {
         self.bits_len += 1;
     }
 
+    pub fn push_byte<U8>(&mut self, byte: U8) 
+        where U8: Into<u8>
+    {
+        let byte_to_push = byte.into();
+
+        for i in 0..8 {
+            self.push_bit(byte_to_push & (1 << (7 - i)));
+        }
+    }
+
     pub fn get_bit(&self, address: usize) -> Result<Bit, BitAddressOutOfBoundsError> {
         if address > self.bits_len {
             return Err(BitAddressOutOfBoundsError);
@@ -73,6 +93,7 @@ impl BitString {
     }
 }
 
+#[cfg(test)]
 impl Display for BitString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for i in 0..self.bits_len {
@@ -138,7 +159,7 @@ mod test {
             }
         }
 
-        println!("{}", bit_string);
+        // println!("{}", bit_string);
         match bit_string.get_bit(50) {
             Ok(bit) => {
                 assert_eq!(bit, Bit::Zero);
@@ -167,5 +188,20 @@ mod test {
                 assert!(true);
             }
         }
+    }
+
+    #[test]
+    fn test_bit_push_byte() {
+        let mut bits = BitString::new();
+        
+        bits.push_bit(1);
+        bits.push_bit(0);
+        bits.push_bit(1);
+        bits.push_bit(0);
+        
+        assert_eq!("1010", format!("{}", bits));
+
+        bits.push_byte(1);
+        assert_eq!("101000000001", format!("{}", bits));
     }
 }

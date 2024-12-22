@@ -1,4 +1,4 @@
-const LOG_TABLE: [u8; 256] = [
+pub const LOG_TABLE: [u8; 256] = [
     1,
     2,
     4,
@@ -257,7 +257,7 @@ const LOG_TABLE: [u8; 256] = [
     1,
 ];
 
-const ANTI_LOG_TABLE: [u8; 256] = [
+pub const ANTI_LOG_TABLE: [u8; 256] = [
     u8::MAX, // We should never be hitting this value
     0,
     1,
@@ -515,125 +515,3 @@ const ANTI_LOG_TABLE: [u8; 256] = [
     88,
     175,
 ];
-
-
-pub struct GeneratorPolynomial {
-    coefficients: Vec<i32>
-}
-
-impl GeneratorPolynomial {
-    pub fn from(coefficients: Vec<i32>) -> Self {
-        Self {
-            coefficients
-        }
-    }
-
-    pub fn get(&self) -> &Vec<i32> {
-        &self.coefficients
-    }
-
-    pub fn multiply_galios_256(&self, other: &GeneratorPolynomial) -> Self {
-        // Initialize a vector of 0s for the multiplication
-        let mut output: Vec<i32> = vec![0; self.coefficients.len() + other.coefficients.len() - 1];
-
-        for (i, coefficient) in self.coefficients.iter().enumerate() {
-            for (j, other_coeff) in other.coefficients.iter().enumerate() {
-                output[i + j] ^= i32::abs(*coefficient * *other_coeff);
-            }
-        }
-
-        println!("{:?}", output);
-
-        Self {
-            coefficients: output,
-        }
-    }
-
-    pub fn multiply_as_exponents(&self, other: &GeneratorPolynomial) -> Self {
-        let mut output: Vec<i32> = vec![0; self.coefficients.len() + other.coefficients.len() - 1];
-
-        for (i, coefficient) in self.coefficients.iter().enumerate() {
-            for (j, other_coeff) in other.coefficients.iter().enumerate() {
-                output[i + j] ^= LOG_TABLE[((i32::abs(*coefficient + *other_coeff) % 255) as u32) as usize] as i32;
-            }
-        }
-        
-        for value in output.iter_mut() {
-            *value = ANTI_LOG_TABLE[*value as usize] as i32;
-        }
-
-        println!("{:?}", output);
-
-        Self {
-            coefficients: output
-        }
-    }
-}
-
-// This could be useful in the future but for now the 
-// log antilog tables are a much better approach
-// fn galios_reduction(exponent: u32) -> u8 {
-//     let mut value;
-//     if exponent > 7 {
-//         value = galios_reduction(exponent - 1) as u32 * 2;
-//     } else {
-//         value = 2_u32.pow(exponent);
-//     }
-// 
-//     if value > 255 {
-//         value ^= 285;
-//     }
-// 
-//     value as u8
-// }
-
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    // fn test_galios_256() {
-    //     assert_eq!(6, galios_256(261));
-    // }
-
-    #[test]
-    // fn test_galios_reduction() {
-    //     assert_eq!(29, galios_reduction(8));
-    //     assert_eq!(58, galios_reduction(9));
-    //     assert_eq!(116, galios_reduction(10));
-    //     assert_eq!(232, galios_reduction(11));
-    //     assert_eq!(205, galios_reduction(12));
-    // }
-
-    #[test]
-    fn test_polynomial_multiply() {
-        let mut poly: GeneratorPolynomial = GeneratorPolynomial::from(vec![1, -1]);
-        let other_poly: GeneratorPolynomial = GeneratorPolynomial::from(vec![1, -2]);
-        
-        poly = poly.multiply_galios_256(&other_poly);
-
-        assert_eq!(*poly.get(), vec![1, 3, 2]);
-        
-        let other_poly: GeneratorPolynomial = GeneratorPolynomial::from(vec![1, -4]);
-        poly = poly.multiply_galios_256(&other_poly);
-
-        assert_eq!(*poly.get(), vec![1, 7, 14, 8]);
-    }
-
-    #[test]
-    fn test_exponent_polynomial_multiply() {
-        let mut poly: GeneratorPolynomial = GeneratorPolynomial::from(vec![0, 0]);
-        let other_poly: GeneratorPolynomial = GeneratorPolynomial::from(vec![0, 1]);
-
-        poly = poly.multiply_as_exponents(&other_poly);
-
-        assert_eq!(*poly.get(), vec![0, 25, 1]);
-
-        let other_poly: GeneratorPolynomial = GeneratorPolynomial::from(vec![0, 2]);
-        
-        poly = poly.multiply_as_exponents(&other_poly);
-
-        assert_eq!(*poly.get(), vec![0, 198, 199, 3]);
-    }
-}
