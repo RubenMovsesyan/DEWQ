@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Display};
+use std::fmt::Display;
 
 pub struct BitString {
     bits: Vec<u8>,
@@ -43,7 +43,7 @@ impl BitString {
             Bit::Zero => {},
             Bit::One => {
                 if let Some(byte) = self.bits.last_mut() {
-                    *byte |= 1 << bit_offset;
+                    *byte |= 1 << (7 - bit_offset);
                 }
             }
         }
@@ -58,10 +58,14 @@ impl BitString {
         let bit_address = address / 8;
         let bit_offset = address % 8;
         
-        match self.bits[bit_address] & (1 << bit_offset) {
+        match self.bits[bit_address] & (1 << (7 - bit_offset)) {
             0 => Ok(Bit::Zero),
             _ => Ok(Bit::One),
         }
+    }
+
+    pub fn get_bytes(&self) -> &Vec<u8> {
+        &self.bits
     }
 
     pub fn len(&self) -> usize {

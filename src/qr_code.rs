@@ -1,4 +1,5 @@
 use crate::bit_string::*;
+use crate::galios::*;
 
 // Constants
 
@@ -49,10 +50,306 @@ const L_NUM_CODEWORDS: [usize; MAX_VERSION] = [
     2956,
 ];
 
-// TODO:
-// const M_NUM_CODEWORDS
-// const Q_NUM_CODEWORDS
-// const H_NUM_CODEWORDS
+const M_NUM_CODEWORDS: [usize; MAX_VERSION] = [
+    16,
+    28,
+    44,
+    64,
+    86,
+    108,
+    124,
+    154,
+    182,
+    216,
+    254,
+    290,
+    334,
+    365,
+    415,
+    453,
+    507,
+    563,
+    627,
+    669,
+    714,
+    782,
+    860,
+    914,
+    1000,
+    1062,
+    1128,
+    1193,
+    1267,
+    1373,
+    1455,
+    1541,
+    1631,
+    1725,
+    1812,
+    1914,
+    1992,
+    2102,
+    2216,
+    2334,
+];
+
+const Q_NUM_CODEWORDS: [usize; MAX_VERSION] = [
+    13,
+    22,
+    34,
+    48,
+    62,
+    76,
+    88,
+    110,
+    132,
+    154,
+    180,
+    206,
+    244,
+    261,
+    295,
+    325,
+    367,
+    397,
+    445,
+    485,
+    512,
+    568,
+    614,
+    664,
+    718,
+    754,
+    808,
+    871,
+    911,
+    985,
+    1033,
+    1115,
+    1171,
+    1231,
+    1286,
+    1354,
+    1426,
+    1502,
+    1582,
+    1666,
+];
+
+const H_NUM_CODEWORDS: [usize; MAX_VERSION] = [
+    9,
+    16,
+    26,
+    36,
+    46,
+    60,
+    66,
+    86,
+    100,
+    122,
+    140,
+    158,
+    180,
+    197,
+    223,
+    253,
+    283,
+    313,
+    341,
+    385,
+    406,
+    442,
+    464,
+    514,
+    538,
+    596,
+    628,
+    661,
+    701,
+    745,
+    793,
+    845,
+    901,
+    961,
+    986,
+    1054,
+    1096,
+    1142,
+    1222,
+    1276,
+];
+
+const L_ERROR_CORRECTION_CODE_WORDS: [usize; MAX_VERSION] = [
+    7,
+    10,
+    15,
+    20,
+    26,
+    18,
+    20,
+    24,
+    30,
+    18,
+    20,
+    24,
+    26,
+    30,
+    22,
+    24,
+    28,
+    30,
+    28,
+    28,
+    28,
+    28,
+    30,
+    30,
+    26,
+    28,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,    
+];
+
+const M_ERROR_CORRECTION_CODE_WORDS: [usize; MAX_VERSION] = [
+    10,
+    16,
+    26,
+    18,
+    24,
+    16,
+    18,
+    22,
+    22,
+    26,
+    30,
+    22,
+    22,
+    24,
+    24,
+    28,
+    28,
+    26,
+    26,
+    26,
+    26,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+];
+
+const Q_ERROR_CORRECTION_CODE_WORDS: [usize; MAX_VERSION] = [
+    13,
+    22,
+    18,
+    26,
+    18,
+    24,
+    18,
+    22,
+    20,
+    24,
+    28,
+    26,
+    24,
+    20,
+    30,
+    24,
+    28,
+    28,
+    26,
+    30,
+    28,
+    30,
+    30,
+    30,
+    30,
+    28,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+];
+
+const H_ERROR_CORRECTION_CODE_WORDS: [usize; MAX_VERSION] = [
+    17,
+    28,
+    22,
+    16,
+    22,
+    28,
+    26,
+    26,
+    24,
+    28,
+    24,
+    28,
+    22,
+    24,
+    24,
+    30,
+    28,
+    28,
+    26,
+    28,
+    30,
+    24,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+    30,
+];
 
 
 const ALPHA_NUMERIC_L_MAX_CAPACITY: [usize; MAX_VERSION] = [
@@ -111,9 +408,15 @@ const ALPHA_NUMERIC_L_MAX_CAPACITY: [usize; MAX_VERSION] = [
 #[derive(PartialEq, Eq, Debug)]
 pub enum QRMode {
     Numeric(Vec<u8>),
-    AlphaNumeric(Vec<u8>),
+    AlphaNumeric(AlphaNumericQrCode),
     Byte(Vec<u8>),
     // Kanji(Vec<u16>), // Double byte mode
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub struct AlphaNumericQrCode {
+    data: Vec<u8>,
+    version: usize 
 }
 
 pub enum ErrorCorrectionLevel {
@@ -188,7 +491,10 @@ impl QRMode {
                 }
             }
 
-            return QRMode::AlphaNumeric(buffer);
+            return QRMode::AlphaNumeric(AlphaNumericQrCode {
+                data: buffer,
+                version: MAX_VERSION
+            });
         } else if converted_input.is_ascii() {
             return QRMode::Byte(converted_input.bytes().collect());
         }
@@ -197,7 +503,7 @@ impl QRMode {
     }
     
 
-    pub fn encode(&self, error_correction_level: ErrorCorrectionLevel) -> BitString {
+    pub fn encode(&mut self, error_correction_level: ErrorCorrectionLevel) -> BitString {
         let mut bit_string: BitString = BitString::new();
         match self {
             QRMode::Numeric(numbers) => {
@@ -215,7 +521,7 @@ impl QRMode {
                         ErrorCorrectionLevel::L => {
                             let mut out: usize = 0;
                             for version_index in (0..MAX_VERSION).rev() {
-                                if alpha_numeric_values.len() > ALPHA_NUMERIC_L_MAX_CAPACITY[version_index] {
+                                if alpha_numeric_values.data.len() > ALPHA_NUMERIC_L_MAX_CAPACITY[version_index] {
                                     out = version_index + 1;
                                     break;
                                 }
@@ -235,6 +541,8 @@ impl QRMode {
                     }
                 };
 
+                alpha_numeric_values.version = version;
+
                 let size_of_character_length_bits = {
                     let out: usize;
                     if (version + 1) < 10 {
@@ -251,15 +559,15 @@ impl QRMode {
                 // Currently only versions 1 through 9 supported
                 // Encode the character count
                 for i in (0..size_of_character_length_bits).rev() {
-                    bit_string.push_bit((alpha_numeric_values.len() & (1 << i)) as i32);
+                    bit_string.push_bit((alpha_numeric_values.data.len() & (1 << i)) as i32);
                 }
 
                 // Encode the values
-                for value_index in (0..alpha_numeric_values.len()).step_by(2) {
+                for value_index in (0..alpha_numeric_values.data.len()).step_by(2) {
                     // Since stepping by 2 we know that this is always going to be Some()
-                    let first_value = unsafe { alpha_numeric_values.get(value_index).unwrap_unchecked() };
+                    let first_value = unsafe { alpha_numeric_values.data.get(value_index).unwrap_unchecked() };
                     
-                    match alpha_numeric_values.get(value_index + 1) {
+                    match alpha_numeric_values.data.get(value_index + 1) {
                         Some(second_value) => {
                             let encoded = (*first_value as u16 * 45) + *second_value as u16;
                             
@@ -345,6 +653,40 @@ impl QRMode {
             }
         }
     }
+
+    pub fn generate_error_correction(&self, error_correction_level: ErrorCorrectionLevel, bits: BitString) {
+        // This is the coefficient to our message polynomial
+        let bytes = bits.get_bytes();
+        
+        let error_correction_codewords = {
+            let mut poly = GeneratorPolynomial::from(vec![0, 0]);
+
+            let num_error_codewords = {
+                match self {
+                    QRMode::Numeric(_data) => todo!(),
+                    QRMode::AlphaNumeric(alpha_numeric_code) => {
+                        match error_correction_level {
+                            ErrorCorrectionLevel::L => L_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_code.version],
+                            ErrorCorrectionLevel::M => todo!(),
+                            ErrorCorrectionLevel::Q => todo!(),
+                            ErrorCorrectionLevel::H => todo!(),
+                        }
+                    },
+                    QRMode::Byte(_data) => todo!(),
+                }
+            };
+
+            for i in 1..num_error_codewords {
+                poly = poly.multiply_as_exponents(&GeneratorPolynomial::from(vec![0, i as i32]));
+            }
+
+            poly
+        };
+
+        
+
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -357,7 +699,10 @@ mod tests {
         assert_eq!(qr_mode, QRMode::Numeric(vec![1, 2, 3]));
 
         let qr_mode = QRMode::analyze_data("A113");
-        assert_eq!(qr_mode, QRMode::AlphaNumeric(vec![10, 1, 1, 3]));
+        assert_eq!(qr_mode, QRMode::AlphaNumeric(AlphaNumericQrCode {
+            data: vec![10, 1, 1, 3],
+            version: MAX_VERSION,
+        }));
 
         let qr_mode = QRMode::analyze_data("a113");
         assert_eq!(qr_mode, QRMode::Byte(vec![97, 49, 49, 51]));
