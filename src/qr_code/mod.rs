@@ -1,4 +1,4 @@
-use crate::bit_string::*;
+use crate::bit_utils::bit_string::*;
 use crate::galios::*;
 use non_std::Vec;
 use crate::alloc::vec;
@@ -18,7 +18,7 @@ use std::print;
 // Constants
 use crate::qr_code::constants::*;
 
-pub mod constants;
+mod constants;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum QRMode {

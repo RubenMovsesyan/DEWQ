@@ -13,9 +13,8 @@ use std::println;
 use qr_code::{ErrorCorrectionLevel, QRMode};
 
 mod qr_code;
-mod bit_string;
+mod bit_utils;
 mod galios;
-
 
 fn test() {
     // println!("{}", bits);

@@ -1,4 +1,5 @@
 use non_std::Vec;
+use super::bit::Bit;
 
 #[cfg(test)]
 extern crate std;
@@ -15,22 +16,6 @@ pub struct BitString {
     bits_len: usize,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum Bit {
-    Zero,
-    One,
-}
-
-impl<I> From<I> for Bit
-    where I: Into<i32>
-{
-    fn from(value: I) -> Bit {
-        match value.into() {
-            0 => Bit::Zero,
-            _ => Bit::One,
-        }
-    }
-}
 
 impl BitString {
     pub fn new() -> BitString {
