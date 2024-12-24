@@ -18,11 +18,24 @@ mod galios;
 
 
 fn test() {
-    let mut my_qr = QRMode::analyze_data("HELLO WORLD", ErrorCorrectionLevel::L);
-    
-    let bits = my_qr.encode();
     // println!("{}", bits);
     // println!("length: {}", bits.len());
 
-    my_qr.generate_error_correction(bits);
+    
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_5_q() {
+        let mut my_qr = QRMode::analyze_data("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT", ErrorCorrectionLevel::Q);
+
+        let mut bits = my_qr.encode();
+        let qr_data = my_qr.generate_error_correction(bits);
+        println!("{:?}", qr_data);
+        bits = my_qr.structure_codewords(qr_data);
+        println!("{}", bits);
+    }
 }

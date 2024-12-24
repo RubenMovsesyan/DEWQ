@@ -84,6 +84,10 @@ impl BitString {
         }
     }
 
+    pub fn get_byte(&self, index: usize) -> u8 {
+        self.bits[index]
+    }
+
     pub fn get_bytes(&self) -> &Vec<u8> {
         &self.bits
     }

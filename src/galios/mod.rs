@@ -9,9 +9,15 @@ pub struct GeneratorPolynomial {
 }
 
 impl GeneratorPolynomial {
-    pub fn from(coefficients: Vec<i32>) -> Self {
+    pub fn from<V>(coefficients: Vec<V>) -> Self 
+        where V: Into<i32>
+    {
+        let mut vec: Vec<i32> = Vec::new();
+        for elem in coefficients {
+            vec.push(elem.into());
+        }
         Self {
-            coefficients
+            coefficients: vec
         }
     }
 

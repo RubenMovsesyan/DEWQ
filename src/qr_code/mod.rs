@@ -277,71 +277,291 @@ impl QRMode {
         }
     }
 
-    pub fn generate_error_correction(&self, mut bits: BitString) -> BitString {
-        // This is the coefficient to our message polynomial
-        let bytes = bits.get_bytes();
+    pub fn generate_error_correction(&self, bits: BitString) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+        let mut data: Vec<Vec<u8>> = Vec::new();
+        let mut error_correction_data: Vec<Vec<u8>> = Vec::new();
         
-        
-        let message_polynomial = {
-            let mut message_exponents = Vec::new();
-
-            for byte in bytes {
-                message_exponents.push(get_antilog(*byte as i32));
-            }
-
-            GeneratorPolynomial::from(message_exponents)
-        };
-
-        
-        let generator_polynomial = {
-            let mut poly = GeneratorPolynomial::from(vec![0, 0]);
-
-            let num_error_codewords = {
+        let (
+            num_blocks_group_1,
+            num_code_words_group_1,
+            num_blocks_group_2,
+            num_code_words_group_2
+        ) = {
+            let (version, error_correction_level) = {
                 match self {
-                    QRMode::Numeric(_data) => todo!(),
-                    QRMode::AlphaNumeric(alpha_numeric_qr_code) => {
-                        match alpha_numeric_qr_code.error_correction_level {
-                            ErrorCorrectionLevel::L => L_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
-                            ErrorCorrectionLevel::M => M_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
-                            ErrorCorrectionLevel::Q => Q_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
-                            ErrorCorrectionLevel::H => H_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
-                        }
-                    },
-                    QRMode::Byte(_data) => todo!(),
+                    QRMode::Numeric(_data) => { todo!() },
+                    QRMode::AlphaNumeric(alpha_numeric_qr_code) => { (alpha_numeric_qr_code.version, &alpha_numeric_qr_code.error_correction_level) },
+                    QRMode::Byte(_data) => { todo!() },
                 }
             };
 
-            for i in 1..num_error_codewords {
-                poly = poly.multiply_as_exponents(&GeneratorPolynomial::from(vec![0, i as i32]));
+            match error_correction_level {
+                ErrorCorrectionLevel::L => {
+                    (
+                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_L[version],
+                        NUM_CODE_WORDS_PER_BLOCK_GROUP_1_L[version],
+                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_L[version],
+                        NUM_CODE_WORDS_PER_BLOCK_GROUP_2_L[version],
+                    )
+                },
+                ErrorCorrectionLevel::M => {
+                    (
+                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_M[version],
+                        NUM_CODE_WORDS_PER_BLOCK_GROUP_1_M[version],
+                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_M[version],
+                        NUM_CODE_WORDS_PER_BLOCK_GROUP_2_M[version],
+                    )
+                },
+                ErrorCorrectionLevel::Q => {
+                    (
+                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_Q[version],
+                        NUM_CODE_WORDS_PER_BLOCK_GROUP_1_Q[version],
+                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_Q[version],
+                        NUM_CODE_WORDS_PER_BLOCK_GROUP_2_Q[version],
+                    )
+                },
+                ErrorCorrectionLevel::H => {
+                    (
+                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_H[version],
+                        NUM_CODE_WORDS_PER_BLOCK_GROUP_1_H[version],
+                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_H[version],
+                        NUM_CODE_WORDS_PER_BLOCK_GROUP_2_H[version],
+                    )
+                },
+            }
+        };
+
+        // Create all the message polynomials from the data codewords
+        let mut message_polynomials: Vec<GeneratorPolynomial> = Vec::new();
+        let mut index = 0;
+
+        for _ in 0..num_blocks_group_1 {
+            let mut block: Vec<u8> = Vec::new();
+            for _ in 0..num_code_words_group_1 {
+                block.push(bits.get_byte(index));
+                index += 1;
             }
 
 
-            poly
-        };
-
-
-        let mut current_xor = message_polynomial;
-
-        for _ in 0..bytes.len() {
-            // Multiply the generator polynomial by the leading term of the message polynomial
-            let mut inter_poly = generator_polynomial.multiply_by_exponent(current_xor.get()[0]);
-            inter_poly = current_xor.to_integer_notation().xor_with_other(&inter_poly.to_integer_notation());
-            inter_poly = inter_poly.drop_leading_zeros();
-            current_xor = inter_poly.to_exponent_notation();
+            data.push(Vec::from(block.clone()));
+            message_polynomials.push(GeneratorPolynomial::from(block));
         }
 
-        // Current xor is the error correction codewords to use in exponent notation
-        let error_correction_nums = current_xor.to_integer_notation();
+        for _ in 0..num_blocks_group_2 {
+            let mut block = Vec::new();
+            for _ in 0..num_code_words_group_2 {
+                block.push(bits.get_byte(index));
+                index += 1;
+            }
+
+            data.push(Vec::from(block.clone()));
+            message_polynomials.push(GeneratorPolynomial::from(block));
+        }
+
+        for message_polynomial in message_polynomials {
+            let generator_polynomial = {
+                let mut poly = GeneratorPolynomial::from(vec![0, 0]);
+
+                let num_error_codewords = {
+                    match self {
+                        QRMode::Numeric(_data) => todo!(),
+                        QRMode::AlphaNumeric(alpha_numeric_qr_code) => {
+                            match alpha_numeric_qr_code.error_correction_level {
+                                ErrorCorrectionLevel::L => L_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
+                                ErrorCorrectionLevel::M => M_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
+                                ErrorCorrectionLevel::Q => Q_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
+                                ErrorCorrectionLevel::H => H_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
+                            }
+                        },
+                        QRMode::Byte(_data) => todo!(),
+                    }
+                };
+
+                for i in 1..num_error_codewords {
+                    poly = poly.multiply_as_exponents(&GeneratorPolynomial::from(vec![0, i as i32]));
+                }
+
+
+                poly
+            };
+
+            
+            // Perform the long division on the message polynomial with the generator polynomial
+            let size = message_polynomial.get().len();
+            let mut current_xor = message_polynomial.to_exponent_notation();
+
+            for _ in 0..size {
+                // Multiply the generator polynomial by the leading term of the message polynomial
+                let mut inter_poly = generator_polynomial.multiply_by_exponent(current_xor.get()[0]);
+                inter_poly = current_xor.to_integer_notation().xor_with_other(&inter_poly.to_integer_notation());
+                inter_poly = inter_poly.drop_leading_zeros();
+                current_xor = inter_poly.to_exponent_notation();
+            }
+
+            // Current xor is the error correction codewords to use in exponent notation
+            let error_correction_nums = current_xor.to_integer_notation();
+
+            // WARNING: if this doesn't give the correct result
+            // then try changing the logic in push_byte to push it
+            // in reverse order instead
+            // for num in error_correction_nums.get() {
+            //     error_correction_data.push(*num as u8);
+            // }
+            let u8_error_correction_nums = {
+                let mut output: Vec<u8> = Vec::new();
+
+                for elem in error_correction_nums.get() {
+                    output.push(*elem as u8);
+                }
+
+                output
+            };
+
+            error_correction_data.push(u8_error_correction_nums);
+        }
+
+
+        (data, error_correction_data)
+    }
+
+    pub fn structure_codewords(&self, data: (Vec<Vec<u8>>, Vec<Vec<u8>>)) -> BitString {
+        let mut new_data: Vec<u8> = Vec::new();
+        let max_index = data.0[0].len().max(data.0[1].len()).max(data.0[2].len()).max(data.0[3].len());
+        // Interleave the data codewords
+        for i in 0..max_index {
+            if data.0[0].len() > i {
+                new_data.push(data.0[0][i]);
+            }
+
+            if data.0[1].len() > i {
+                new_data.push(data.0[1][i]);
+            }
+
+            if data.0[2].len() > i {
+                new_data.push(data.0[2][i]);
+            }
+
+            if data.0[3].len() > i {
+                new_data.push(data.0[3][i]);
+            }
+        }
+
+        let max_index = data.1[0].len().max(data.1[1].len()).max(data.1[2].len()).max(data.1[3].len());
+        // Interleave the error codewords
+        for i in 0..max_index {
+            if data.1[0].len() > i {
+                new_data.push(data.1[0][i]);
+            }
+
+            if data.1[1].len() > i {
+                new_data.push(data.1[1][i]);
+            }
+
+            if data.1[2].len() > i {
+                new_data.push(data.1[2][i]);
+            }
+
+            if data.1[3].len() > i {
+                new_data.push(data.1[3][i]);
+            }
+        }
         
+        #[cfg(test)]
+        println!("{:?}", new_data);
 
-        // WARNING: if this doesn't give the correct result
-        // then try changing the logic in push_byte to push it
-        // in reverse order instead
-        for num in error_correction_nums.get() {
-            bits.push_byte(*num as u8);
+        // Turn into a final bitstring
+        let mut new_bitstring = BitString::new();
+        for byte in new_data {
+            new_bitstring.push_byte(byte);
         }
+        new_bitstring
 
-        bits
+
+        // Get the variables for the structure from the constants
+        // let (
+        //     num_blocks_group_1,
+        //     num_code_words_group_1,
+        //     num_blocks_group_2,
+        //     num_code_words_group_2
+        // ) = {
+        //     let (version, error_correction_level) = {
+        //         match self {
+        //             QRMode::Numeric(_data) => { todo!() },
+        //             QRMode::AlphaNumeric(alpha_numeric_qr_code) => { (alpha_numeric_qr_code.version, &alpha_numeric_qr_code.error_correction_level) },
+        //             QRMode::Byte(_data) => { todo!() },
+        //         }
+        //     };
+
+        //     match error_correction_level {
+        //         ErrorCorrectionLevel::L => {
+        //             (
+        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_L[version],
+        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_1_L[version],
+        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_L[version],
+        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_2_L[version],
+        //             )
+        //         },
+        //         ErrorCorrectionLevel::M => {
+        //             (
+        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_M[version],
+        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_1_M[version],
+        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_M[version],
+        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_2_M[version],
+        //             )
+        //         },
+        //         ErrorCorrectionLevel::Q => {
+        //             (
+        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_Q[version],
+        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_1_Q[version],
+        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_Q[version],
+        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_2_Q[version],
+        //             )
+        //         },
+        //         ErrorCorrectionLevel::H => {
+        //             (
+        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_H[version],
+        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_1_H[version],
+        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_H[version],
+        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_2_H[version],
+        //             )
+        //         },
+        //     }
+        // };
+        
+        // if num_blocks_group_2 != 0 {
+        //     let mut blocks: Vec<Vec<u8>> = Vec::new();
+        //     
+        //     let mut index = 0;
+        //     for _ in 0..num_blocks_group_1 {
+        //         let mut block = Vec::new();
+        //         for _ in 0..num_code_words_group_1 {
+        //             block.push(bits.get_byte(index));
+        //             index += 1;
+        //         }
+        //         blocks.push(block);
+        //     }
+
+        //     for _ in 0..num_blocks_group_2 {
+        //         let mut block = Vec::new();
+        //         for _ in 0..num_code_words_group_2 {
+        //             block.push(bits.get_byte(index));
+        //             index += 1;
+        //         }
+        //         blocks.push(block);
+        //     }
+
+        //     let mut new_bitstring = BitString::new();
+
+        //     for block in blocks {
+        //         for byte in block {
+        //             new_bitstring.push_byte(byte);
+        //         }
+        //     }
+
+        //     return new_bitstring;
+        // }
+
+        // bits
     }
 }
 
@@ -368,9 +588,9 @@ mod tests {
     #[test]
     fn test_qr_error_codes() {
         let mut qr_mode = QRMode::analyze_data("HELLO WORLD", ErrorCorrectionLevel::M);
-        let mut bits = qr_mode.encode();
+        let bits = qr_mode.encode();
         println!("Bits pre {}", bits);
-        bits = qr_mode.generate_error_correction(bits);
-        println!("Bits post {}", bits);
+        let data = qr_mode.generate_error_correction(bits);
+        println!("data post {:?}", data);
     }
 }
