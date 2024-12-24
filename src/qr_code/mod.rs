@@ -474,94 +474,20 @@ impl QRMode {
         for byte in new_data {
             new_bitstring.push_byte(byte);
         }
-        new_bitstring
-
-
-        // Get the variables for the structure from the constants
-        // let (
-        //     num_blocks_group_1,
-        //     num_code_words_group_1,
-        //     num_blocks_group_2,
-        //     num_code_words_group_2
-        // ) = {
-        //     let (version, error_correction_level) = {
-        //         match self {
-        //             QRMode::Numeric(_data) => { todo!() },
-        //             QRMode::AlphaNumeric(alpha_numeric_qr_code) => { (alpha_numeric_qr_code.version, &alpha_numeric_qr_code.error_correction_level) },
-        //             QRMode::Byte(_data) => { todo!() },
-        //         }
-        //     };
-
-        //     match error_correction_level {
-        //         ErrorCorrectionLevel::L => {
-        //             (
-        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_L[version],
-        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_1_L[version],
-        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_L[version],
-        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_2_L[version],
-        //             )
-        //         },
-        //         ErrorCorrectionLevel::M => {
-        //             (
-        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_M[version],
-        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_1_M[version],
-        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_M[version],
-        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_2_M[version],
-        //             )
-        //         },
-        //         ErrorCorrectionLevel::Q => {
-        //             (
-        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_Q[version],
-        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_1_Q[version],
-        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_Q[version],
-        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_2_Q[version],
-        //             )
-        //         },
-        //         ErrorCorrectionLevel::H => {
-        //             (
-        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_H[version],
-        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_1_H[version],
-        //                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_H[version],
-        //                 NUM_CODE_WORDS_PER_BLOCK_GROUP_2_H[version],
-        //             )
-        //         },
-        //     }
-        // };
         
-        // if num_blocks_group_2 != 0 {
-        //     let mut blocks: Vec<Vec<u8>> = Vec::new();
-        //     
-        //     let mut index = 0;
-        //     for _ in 0..num_blocks_group_1 {
-        //         let mut block = Vec::new();
-        //         for _ in 0..num_code_words_group_1 {
-        //             block.push(bits.get_byte(index));
-        //             index += 1;
-        //         }
-        //         blocks.push(block);
-        //     }
+        let version = {
+            match self {
+                QRMode::Numeric(_data) => { todo!() },
+                QRMode::AlphaNumeric(alpha_numeric_qr_code) => { alpha_numeric_qr_code.version },
+                QRMode::Byte(_data) => { todo!() },
+            }
+        };
 
-        //     for _ in 0..num_blocks_group_2 {
-        //         let mut block = Vec::new();
-        //         for _ in 0..num_code_words_group_2 {
-        //             block.push(bits.get_byte(index));
-        //             index += 1;
-        //         }
-        //         blocks.push(block);
-        //     }
+        for _ in 0..REQUIRED_REMAINDER_BITS[version] {
+            new_bitstring.push_bit(0);
+        }
 
-        //     let mut new_bitstring = BitString::new();
-
-        //     for block in blocks {
-        //         for byte in block {
-        //             new_bitstring.push_byte(byte);
-        //         }
-        //     }
-
-        //     return new_bitstring;
-        // }
-
-        // bits
+        new_bitstring
     }
 }
 
