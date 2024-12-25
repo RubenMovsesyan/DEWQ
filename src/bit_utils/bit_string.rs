@@ -1,13 +1,22 @@
 use non_std::Vec;
 use super::bit::Bit;
 
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 extern crate std;
 
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 use std::fmt::Display;
 
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 #[macro_use]
 use std::format;
 
@@ -82,7 +91,10 @@ impl BitString {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 impl Display for BitString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for i in 0..self.bits_len {

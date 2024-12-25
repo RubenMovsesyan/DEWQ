@@ -1,19 +1,31 @@
 use crate::bit_utils::bit_string::*;
+use crate::bit_utils::bitmap::*;
 use crate::galios::*;
 use non_std::Vec;
 use crate::alloc::vec;
+use crate::test_utils::test_println;
 
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 extern crate std;
 
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 #[macro_use]
 use std::println;
 
 
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 #[macro_use]
 use std::print;
+
 
 // Constants
 use crate::qr_code::constants::*;
@@ -466,9 +478,6 @@ impl QRMode {
             }
         }
         
-        #[cfg(test)]
-        println!("{:?}", new_data);
-
         // Turn into a final bitstring
         let mut new_bitstring = BitString::new();
         for byte in new_data {
@@ -489,6 +498,50 @@ impl QRMode {
 
         new_bitstring
     }
+
+    
+    pub fn create_bit_map(&self, bits: BitString) {
+        let version = {
+            match self {
+                QRMode::Numeric(_data) => { todo!() },
+                QRMode::AlphaNumeric(alpha_numeric_qr_code) => { alpha_numeric_qr_code.version },
+                QRMode::Byte(_data) => { todo!() },
+            }
+        };
+
+        let size = 21 + (4 * version);
+
+        let mut bit_map = BitMap::new(size);
+        bit_map.invert();
+        create_finder_patterns(&mut bit_map);
+
+
+        test_println!("{}", bit_map);
+    }
+}
+
+fn create_finder_patterns(bit_map: &mut BitMap) {
+    let size = bit_map.size();
+
+    let mut add_finder = |i: usize, j: usize| {
+        for x in 0..7 {
+            bit_map.set(i, j + x, 0);
+            bit_map.set(i + 6, j + x, 0);
+
+            bit_map.set(i + x, j, 0);
+            bit_map.set(i + x, j + 6, 0);
+        }
+
+        for x in 2..5 {
+            for y in 2..5 {
+                bit_map.set(i + x, j + y, 0);
+            }
+        }
+    };
+    
+    add_finder(0, 0);
+    add_finder(size - 7, 0);
+    add_finder(0, size - 7);
 }
 
 #[cfg(test)]

@@ -1,7 +1,13 @@
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 extern crate std;
 
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 use std::fmt::Display;
 
 
@@ -22,7 +28,10 @@ impl<I> From<I> for Bit
     }
 }
 
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 impl Display for Bit {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {

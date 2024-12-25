@@ -15,6 +15,7 @@ use qr_code::{ErrorCorrectionLevel, QRMode};
 mod qr_code;
 mod bit_utils;
 mod galios;
+mod test_utils;
 
 fn test() {
     // println!("{}", bits);

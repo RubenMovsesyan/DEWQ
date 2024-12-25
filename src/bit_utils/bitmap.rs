@@ -1,21 +1,34 @@
 use non_std::Vec;
-use crate::alloc::vec;
 use super::bit::Bit;
 
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 extern crate std;
 
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 use std::fmt::Display;
 
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 #[macro_use]
 use std::println;
 
 
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 #[macro_use]
 use std::print;
+
+
 
 // bitmaps can only be square in size
 pub struct BitMap {
@@ -48,12 +61,23 @@ impl BitMap {
         let byte = j / 8;
         let byte_offset = j % 8;
 
-        row[byte] |= {
+        row[byte] &= {
             match bit.into() {
-                Bit::One => { 1 },
-                Bit::Zero => { 0 },
+                Bit::One => { 1 << byte_offset },
+                Bit::Zero => { !(1 << byte_offset) },
             }
-        } << byte_offset;
+        };
+    }
+
+    pub fn invert(&mut self) {
+        for i in 0..self.size {
+            let row = &mut self.map[i];
+            for j in 0..self.size {
+                let byte = j / 8;
+                let byte_offset = j % 8;
+                row[byte] ^= 1 << byte_offset;
+            }
+        }
     }
 
     pub fn get(&self, i: usize, j: usize) -> Bit {
@@ -64,9 +88,16 @@ impl BitMap {
 
         (row[byte] & (1 << byte_offset)).into()
     }
+
+    pub fn size(&self) -> usize {
+        self.size
+    }
 }
 
-#[cfg(test)]
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
 impl Display for BitMap {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         for i in 0..self.size {
@@ -93,6 +124,14 @@ mod test {
 
         bit_map.set(5, 7, 1);
 
-        println!("{}", bit_map);
+        assert_eq!(bit_map.get(5, 7), Bit::One);
+    }
+
+    #[test]
+    fn test_bitmap_sizing() {
+        let bit_map = BitMap::new(10);
+
+        assert_eq!(bit_map.map.len(), 10);
+        assert_eq!(bit_map.map[0].len(), 2);
     }
 }
