@@ -39,7 +39,7 @@ pub struct BitMap {
 impl BitMap {
     pub fn new(size: usize) -> Self {
         let mut map: Vec<Vec<u8>> = Vec::with_capacity(size);
-        for _ in 0..size {
+        for _ in 0..=size {
             let mut row: Vec<u8> = Vec::with_capacity((size / 8) + 1);
             for _ in 0..=(size / 8) {
                 row.push(0);
@@ -61,12 +61,10 @@ impl BitMap {
         let byte = j / 8;
         let byte_offset = j % 8;
 
-        row[byte] &= {
-            match bit.into() {
-                Bit::One => { 1 << byte_offset },
-                Bit::Zero => { !(1 << byte_offset) },
-            }
-        };
+        match bit.into() {
+            Bit::One => { row[byte] |= 1 << byte_offset },
+            Bit::Zero => { row[byte] &= !(1 << byte_offset) },
+        }
     }
 
     pub fn invert(&mut self) {

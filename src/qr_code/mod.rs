@@ -1,5 +1,4 @@
-use crate::bit_utils::bit_string::*;
-use crate::bit_utils::bitmap::*;
+use crate::bit_utils::{bit::*, bit_string::*, bitmap::*};
 use crate::galios::*;
 use non_std::Vec;
 use crate::alloc::vec;
@@ -512,15 +511,322 @@ impl QRMode {
         let size = 21 + (4 * version);
 
         let mut bit_map = BitMap::new(size);
+        let mut reservations = BitMap::new(size);
         bit_map.invert();
-        create_finder_patterns(&mut bit_map);
+        reservations.invert();
+        create_finder_patterns(&mut bit_map, &mut reservations);
+        create_alignment_patterns(&mut bit_map, &mut reservations);
+        create_timing_patterns(&mut bit_map, &mut reservations);
+        create_dark_module(&mut bit_map, &mut reservations);
+        reserve_format_information_areas(&mut reservations);
+        place_data_bits(&mut bit_map, &reservations, &bits);
 
-
+        test_println!("{}", bits);
         test_println!("{}", bit_map);
+        // test_println!("{}", reservations);
     }
 }
 
-fn create_finder_patterns(bit_map: &mut BitMap) {
+
+fn place_data_bits(bit_map: &mut BitMap, reservations: &BitMap, bits: &BitString) {
+    let size = bit_map.size();
+    let mut position = (size - 1, size - 1);
+    let mut index = 0;
+
+    while position.0 > 6 {
+        while position.1 > 0 {
+            if index >= bits.len() {
+                break;
+            }
+            if reservations.get(position.1, position.0) == Bit::One {
+                bit_map.set(position.1, position.0, {
+                    let mut out = 1;
+                    if let Ok(bit) = bits.get_bit(index) {
+                        match bit {
+                            Bit::Zero => out = 0,
+                            Bit::One => {},
+                        }
+                    }
+
+                    out
+                });
+                index += 1;
+            }
+
+            position.0 -= 1;
+
+            if index >= bits.len() {
+                break;
+            }
+            if reservations.get(position.1, position.0) == Bit::One {
+                bit_map.set(position.1, position.0, {
+                    let mut out = 1;
+                    if let Ok(bit) = bits.get_bit(index) {
+                        match bit {
+                            Bit::Zero => out = 0,
+                            Bit::One => {},
+                        }
+                    }
+
+                    out
+                });
+                index += 1;
+            }
+
+            position.0 += 1;
+            position.1 -= 1;
+        }
+
+        position.0 -= 2;
+
+        if position.0 <= 6 {
+            break;
+        }
+
+        while position.1 < size - 1 {
+            if index >= bits.len() {
+                break;
+            }
+            if reservations.get(position.1, position.0) == Bit::One {
+                bit_map.set(position.1, position.0, {
+                    let mut out = 1;
+                    if let Ok(bit) = bits.get_bit(index) {
+                        match bit {
+                            Bit::Zero => out = 0,
+                            Bit::One => {},
+                        }
+                    }
+
+                    out
+                });
+                index += 1;
+            }
+
+            position.0 -= 1;
+
+            if index >= bits.len() {
+                break;
+            }
+            if reservations.get(position.1, position.0) == Bit::One {
+                bit_map.set(position.1, position.0, {
+                    let mut out = 1;
+                    if let Ok(bit) = bits.get_bit(index) {
+                        match bit {
+                            Bit::Zero => out = 0,
+                            Bit::One => {},
+                        }
+                    }
+
+                    out
+                });
+                index += 1;
+            }
+
+            position.0 += 1;
+            position.1 += 1;
+        }
+
+        position.0 -= 2;
+    }
+    
+    while position.0 > 0 {
+        while position.1 > 0 {
+            if index >= bits.len() {
+                break;
+            }
+            if reservations.get(position.1, position.0) == Bit::One {
+                bit_map.set(position.1, position.0, {
+                    let mut out = 1;
+                    if let Ok(bit) = bits.get_bit(index) {
+                        match bit {
+                            Bit::Zero => out = 0,
+                            Bit::One => {},
+                        }
+                    }
+
+                    out
+                });
+                index += 1;
+            }
+
+            position.0 -= 1;
+
+            if index >= bits.len() {
+                break;
+            }
+            if reservations.get(position.1, position.0) == Bit::One {
+                bit_map.set(position.1, position.0, {
+                    let mut out = 1;
+                    if let Ok(bit) = bits.get_bit(index) {
+                        match bit {
+                            Bit::Zero => out = 0,
+                            Bit::One => {},
+                        }
+                    }
+
+                    out
+                });
+                index += 1;
+            }
+
+            position.0 += 1;
+            position.1 -= 1;
+        }
+
+        position.0 -= 2;
+
+        if position.0 <= 0 {
+            break;
+        }
+
+        while position.1 < size - 1 {
+            if index >= bits.len() {
+                break;
+            }
+            if reservations.get(position.1, position.0) == Bit::One {
+                bit_map.set(position.1, position.0, {
+                    let mut out = 1;
+                    if let Ok(bit) = bits.get_bit(index) {
+                        match bit {
+                            Bit::Zero => out = 0,
+                            Bit::One => {},
+                        }
+                    }
+
+                    out
+                });
+                index += 1;
+            }
+
+            position.0 -= 1;
+
+            if index >= bits.len() {
+                break;
+            }
+            if reservations.get(position.1, position.0) == Bit::One {
+                bit_map.set(position.1, position.0, {
+                    let mut out = 1;
+                    if let Ok(bit) = bits.get_bit(index) {
+                        match bit {
+                            Bit::Zero => out = 0,
+                            Bit::One => {},
+                        }
+                    }
+
+                    out
+                });
+                index += 1;
+            }
+
+            position.0 += 1;
+            position.1 += 1;
+        }
+
+        position.0 -= 2;
+    }
+}
+
+fn reserve_format_information_areas(reservations: &mut BitMap) {
+    let size = reservations.size();
+
+    let version = ((size - 21) / 4) + 1;
+
+    if version >= 7 {
+        for i in 0..=5 {
+            reservations.set(i, size - 11, 0);
+            reservations.set(i, size - 10, 0);
+            reservations.set(i, size - 9, 0);
+
+            reservations.set(size - 11, i, 0);
+            reservations.set(size - 10, i, 0);
+            reservations.set(size - 9, i, 0);
+        }
+    } else {
+        for i in 0..=8 {
+            reservations.set(i, 8, 0);
+            reservations.set(8, i, 0);
+            reservations.set(size - i, 8, 0);
+            reservations.set(8, size - i, 0);
+        }
+    }
+}
+
+fn create_dark_module(bit_map: &mut BitMap, reservations: &mut BitMap) {
+    let size = bit_map.size();
+    bit_map.set(size - 7, 8, 0);
+    reservations.set(size - 7, 8, 0);
+}
+
+fn create_timing_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
+    for i in 7..(bit_map.size() - 7) {
+        if i % 2 == 0 {
+            bit_map.set(i, 6, 0);
+            bit_map.set(6, i, 0);
+        }
+
+        reservations.set(i, 6, 0);
+        reservations.set(6, i, 0);
+    }
+}
+
+
+fn get_alignment_pattern_coordinates_list(bit_map_size: usize) -> Vec<usize> {
+    let version = ((bit_map_size - 21) / 4) + 1;
+    
+    test_println!("{} {}", version, bit_map_size);
+
+    let intervals = (version / 7) + 1;
+    let distance = 4 * version + 4;
+    let mut step = ((distance as f64) / (intervals as f64)).round() as usize;
+    step += step & 0b1; // Round step to the next even number
+    let mut coordinates: Vec<usize> = vec![6]; // The first coordinate is always 6
+    for i in 1..=intervals {
+        coordinates.push(6 + distance - step * (intervals - i));
+    }
+
+    coordinates
+}
+
+fn create_alignment_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
+    if !(bit_map.size() > 21) {
+        return;
+    }
+
+    let add_alignment_pattern = |bm: &mut BitMap, rv: &mut BitMap, i: usize, j: usize| {
+        bm.set(i, j, 0);
+        
+        for x in -2..=2 as isize {
+            bm.set(i - 2, (j as isize + x) as usize, 0);
+            bm.set(i + 2, (j as isize + x) as usize, 0);
+            bm.set((i as isize + x) as usize, j + 2, 0);
+            bm.set((i as isize + x) as usize, j - 2, 0);
+        }
+
+        // Reserve the alignment patterns
+        for rev_x in -2..=2 as isize {
+            for rev_y in -2..=2 as isize {
+                rv.set((rev_x + i as isize) as usize, (rev_y + j as isize) as usize, 0);
+            }
+        }
+    };
+    
+    let coords = get_alignment_pattern_coordinates_list(bit_map.size());
+    
+    test_println!("{:?}", coords);
+        
+    for x in 0..coords.len() {
+        for y in 0..coords.len() {
+            if (x == 0 && y == 0)
+            || (x == 0 && y == coords.len() - 1) 
+            || (x == coords.len() - 1 && y == 0) {
+                continue;
+            }
+            add_alignment_pattern(bit_map, reservations, coords[x] as usize, coords[y] as usize);
+        }
+    }
+}
+
+fn create_finder_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
     let size = bit_map.size();
 
     let mut add_finder = |i: usize, j: usize| {
@@ -537,11 +843,31 @@ fn create_finder_patterns(bit_map: &mut BitMap) {
                 bit_map.set(i + x, j + y, 0);
             }
         }
+
+        for reservation_x in 0..7 {
+            for reservation_y in 0..7 {
+                reservations.set(reservation_x + i, reservation_y + j, 0);
+            }
+        }
     };
     
     add_finder(0, 0);
     add_finder(size - 7, 0);
     add_finder(0, size - 7);
+    
+    // Reserve the separators
+    for reservation_index in 0..=7 {
+        reservations.set(7, reservation_index, 0);
+        reservations.set(reservation_index, 7, 0);
+
+
+        reservations.set(size - 8, reservation_index, 0);
+        reservations.set(size - reservation_index, 7, 0);
+
+
+        reservations.set(reservation_index, size - 8, 0);
+        reservations.set(7, size - reservation_index, 0);
+    }
 }
 
 #[cfg(test)]
