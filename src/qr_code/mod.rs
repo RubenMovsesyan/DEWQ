@@ -559,91 +559,32 @@ impl QRMode {
 }
 
 fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCorrectionLevel, version: &usize) {
-    let mut bits = Vec::with_capacity(15);
-    match error_correction_level {
-        ErrorCorrectionLevel::L => { bits.push(0); bits.push(1); },
-        ErrorCorrectionLevel::M => { bits.push(0); bits.push(0); },
-        ErrorCorrectionLevel::Q => { bits.push(1); bits.push(1); },
-        ErrorCorrectionLevel::H => { bits.push(1); bits.push(0); },
-    }
+    // NOTE: Find out why this works and that the siginificance of all the numbers are
+    let bits: u32 = {
+        let data = match error_correction_level {
+            ErrorCorrectionLevel::L => { (u32::from(1 as u32) << 3) | 0 },
+            ErrorCorrectionLevel::M => { (u32::from(0 as u32) << 3) | 0 },
+            ErrorCorrectionLevel::Q => { (u32::from(3 as u32) << 3) | 0 },
+            ErrorCorrectionLevel::H => { (u32::from(2 as u32) << 3) | 0 },
+        };
 
-    // Add the mask pattern bits
-    bits.push(0);
-    bits.push(0);
-    bits.push(1);
+        let mut rem: u32 = data;
+        for _ in 0..10 {
+            rem = (rem << 1) ^ ((rem >> 9) * 0x537);
+        }
 
-    for _ in 0..10 {
-        bits.push(0);
-    }
+        ((data << 10) | rem) ^ 0x5412
+    };
 
-    let mut bits_poly = GeneratorPolynomial::from(bits.clone());
-    bits_poly = bits_poly.drop_leading_zeros();
+    let mut format_bits = BitString::new();
 
-
-    while bits_poly.len() > 10 {
-        let generator_poly = GeneratorPolynomial::from({
-            let mut output = vec![1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1];
-
-            for _ in output.len()..bits_poly.len() {
-                output.push(0);
-            }
-
-            output
+    for i in (0..15).rev() {
+        format_bits.push_bit(match bits & (1 << i) {
+            0 => Bit::Zero,
+            _ => Bit::One
         });
-        
-        test_println!("bits before: {}\nGen before:  {}", bits_poly, generator_poly);
-        bits_poly = bits_poly.xor_with_other(&generator_poly);
-        bits_poly = bits_poly.drop_leading_zeros();
-        // test_println!("bits_poly: {}", bits_poly);
     }
 
-    // test_println!("{}", bits_poly);
-
-    let prepend = {
-        let mut prepend_vec = Vec::with_capacity(10 - bits_poly.len());
-        for _ in bits_poly.len()..10 {
-            prepend_vec.push(0);
-        }
-        prepend_vec
-    };
-
-    bits_poly.prepend(prepend);
-
-    test_println!("Prepended: {}", bits_poly);
-
-    let mut format_bits = {
-        let mut output = BitString::new();
-        for i in 0..=4 {
-            output.push_bit(bits[i]);
-        }
-
-        for coefficient in bits_poly.get() {
-            output.push_bit(*coefficient);
-        }
-
-        output
-    };
-
-    // Mask the new bitstring
-    // NOTE: Currently using masking number 1
-    let mask_bits = match error_correction_level {
-        ErrorCorrectionLevel::L => {
-            BitString::from_string("111011111000100")
-        },
-        ErrorCorrectionLevel::M => {
-            BitString::from_string("101010000010010")
-        },
-        ErrorCorrectionLevel::Q => {
-            BitString::from_string("011010101011111")
-        },
-        ErrorCorrectionLevel::H => {
-            BitString::from_string("001011010001001")
-        },
-    };
-    
-    test_println!("{}", format_bits);
-    let _ = format_bits.xor_with_other(&mask_bits);
-    test_println!("{}", format_bits);
 
     // Put the bits into the bitmap
     let mut index = 0;
@@ -760,25 +701,34 @@ fn place_data_bits(bit_map: &mut BitMap, reservations: &BitMap, bits: &BitString
     
     let mut index = 0;
     let mut x_pos = bit_map.size() - 1;
-
+    
+    let mut going_up = true;
     while x_pos > 7 {
         place_bits_up(bit_map, reservations, bits, &mut index, x_pos);
         x_pos -= 2;
+        going_up = false;
         if x_pos < 7 {
             break;
         }
+
         place_bits_down(bit_map, reservations, bits, &mut index, x_pos);
         x_pos -= 2;
+        going_up = true;
     }
 
     x_pos -= 1;
 
     loop {
-        place_bits_up(bit_map, reservations, bits, &mut index, x_pos);
-        if x_pos < 2 {
-            break;
+        if going_up {
+            place_bits_up(bit_map, reservations, bits, &mut index, x_pos);
+            if x_pos < 2 {
+                break;
+            }
+            x_pos -= 2;
+        } else {
+            going_up = true;
         }
-        x_pos -= 2;
+
         place_bits_down(bit_map, reservations, bits, &mut index, x_pos);
         if x_pos < 2 {
             break;
