@@ -109,11 +109,17 @@ impl BitMap {
 ))]
 impl Display for BitMap {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        for _ in 0..=self.size {
+        for _ in 0..=self.size + 2 {
             write!(f, "██")?;
         }
         writeln!(f, "██")?;
+        for _ in 0..=self.size + 2 {
+            write!(f, "██")?;
+        }
+        writeln!(f, "██")?;
+
         for i in 0..self.size {
+            write!(f, "██")?;
             write!(f, "██")?;
             for j in 0..self.size {
                 match self.get(i, j) {
@@ -121,13 +127,19 @@ impl Display for BitMap {
                     Bit::One => { write!(f, "  ")?; }
                 }
             }
+            write!(f, "██")?;
             writeln!(f, "██")?;
         }
 
-        for _ in 0..=self.size {
+        for _ in 0..=self.size + 2{
             write!(f, "██")?;
         }
         writeln!(f, "██")?;
+        for _ in 0..=self.size + 2{
+            write!(f, "██")?;
+        }
+        writeln!(f, "██")?;
+
         Ok(())
     }
 }

@@ -553,7 +553,7 @@ impl QRMode {
             }
         }, &version);
         // test_println!("{}", bits);
-        test_println!("{}", reservations);
+        // test_println!("{}", reservations);
         test_println!("{}", bit_map);
     }
 }
@@ -590,19 +590,14 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
 
             output
         });
-
-        // test_println!("{}", bits_poly);
-        // test_println!("{}", generator_poly);
-
-        // Perform the division 4 times
+        
+        test_println!("bits before: {}\nGen before:  {}", bits_poly, generator_poly);
         bits_poly = bits_poly.xor_with_other(&generator_poly);
         bits_poly = bits_poly.drop_leading_zeros();
-
-        // test_println!("{}", bits_poly);
-        // test_println!("{}", generator_poly);
+        // test_println!("bits_poly: {}", bits_poly);
     }
 
-    test_println!("{}", bits_poly);
+    // test_println!("{}", bits_poly);
 
     let prepend = {
         let mut prepend_vec = Vec::with_capacity(10 - bits_poly.len());
@@ -614,7 +609,7 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
 
     bits_poly.prepend(prepend);
 
-    test_println!("{}", bits_poly);
+    test_println!("Prepended: {}", bits_poly);
 
     let mut format_bits = {
         let mut output = BitString::new();
@@ -633,16 +628,16 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
     // NOTE: Currently using masking number 1
     let mask_bits = match error_correction_level {
         ErrorCorrectionLevel::L => {
-            BitString::from_string("111001011110011")
+            BitString::from_string("111011111000100")
         },
         ErrorCorrectionLevel::M => {
-            BitString::from_string("101000100100101")
+            BitString::from_string("101010000010010")
         },
         ErrorCorrectionLevel::Q => {
-            BitString::from_string("011000001101000")
+            BitString::from_string("011010101011111")
         },
         ErrorCorrectionLevel::H => {
-            BitString::from_string("001001110111110")
+            BitString::from_string("001011010001001")
         },
     };
     
@@ -657,7 +652,7 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
             // Come up with a better solution than this
             let bit = unsafe { format_bits.get_bit(index).unwrap_unchecked() };
             bit_map.set(8, i, bit);
-            bit_map.set(bit_map.size() - i, 8, bit);
+            bit_map.set(bit_map.size() - 1 - i, 8, bit);
             index += 1;
         }
 
@@ -688,104 +683,110 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
 }
 
 fn mask_data(bit_map: &mut BitMap, reservations: &BitMap) {
-    // Doing data masking number 1
+    // Doing data masking number 0
     for row in 0..bit_map.size() {
-        if row % 2 == 0 {
             for column in 0..bit_map.size() {
-                if reservations.get(row, column) == Bit::Zero {
-                    bit_map.invert_bit(row, column);
+                if (row + column) % 2 == 0 {
+                    if reservations.get(row, column) == Bit::Zero {
+                        bit_map.invert_bit(row, column);
+                    }
                 }
             }
-        }
     }
 }
 
 
 fn place_data_bits(bit_map: &mut BitMap, reservations: &BitMap, bits: &BitString) {
-    let size = bit_map.size();
-    let mut position = (size - 1, size - 1);
-    let mut index = 0;
-        
-    test_println!("here {}", bits.len());
-    let place_row = |bm: &mut BitMap, x: &usize, y: &usize, ind: &mut usize| {
-            for i in 0..=1 {
-                if reservations.get(*y, *x - i) == Bit::Zero {
-                    bm.set(*y, *x - i, {
-                        let mut out = 1;
-                        if let Ok(bit) = bits.get_bit(*ind) {
-                            match bit {
-                                Bit::Zero => out = 0,
-                                Bit::One => {},
-                            }
-                        } else {
-                            test_println!("out of bounds");
-                            return;
-                        }
+    test_println!("size: {}", bits.len());
 
-                        out
-                    });
-                    *ind += 1;
-                }
+    // Place bits up in a zig zag pattern
+    fn place_bits_up(
+        bit_map: &mut BitMap, 
+        reservations: &BitMap, 
+        bits: &BitString, 
+        index: &mut usize, 
+        x_pos: usize
+    ) {
+        let mut y_pos = bit_map.size() - 1;
+        
+        loop {
+            if reservations.get(y_pos, x_pos) == Bit::Zero {
+                bit_map.set(y_pos, x_pos, bits.get_bit(*index).unwrap());
+                // bit_map.set(y_pos, x_pos, 1);
+                *index += 1;
             }
-    };
-    
-    let mut going_up: bool = true;
-    while position.0 > 6 {
-        while position.1 > 0 {
-            place_row(bit_map, &position.0, &position.1, &mut index);
-            position.1 -= 1;
+
+            if reservations.get(y_pos, x_pos - 1) == Bit::Zero {
+                bit_map.set(y_pos, x_pos - 1, bits.get_bit(*index).unwrap());
+                // bit_map.set(y_pos, x_pos - 1, 1);
+                *index += 1;
+            }
+
+            if y_pos == 0 {
+                break;
+            }
+
+            y_pos -= 1;
         }
+    }
 
 
-        going_up = false;
+    // Place bits down in a zig zag pattern
+    fn place_bits_down(
+        bit_map: &mut BitMap, 
+        reservations: &BitMap, 
+        bits: &BitString, 
+        index: &mut usize, 
+        x_pos: usize
+    ) {
+        let mut y_pos = 0;
 
-        position.0 -= 2;
-        
-        if position.0 <= 6 {
+        while y_pos < bit_map.size() {
+            if reservations.get(y_pos, x_pos) == Bit::Zero {
+                bit_map.set(y_pos, x_pos, bits.get_bit(*index).unwrap());
+                // bit_map.set(y_pos, x_pos, 1);
+                *index += 1;
+            }
+
+            if reservations.get(y_pos, x_pos - 1) == Bit::Zero {
+                bit_map.set(y_pos, x_pos - 1, bits.get_bit(*index).unwrap());
+                // bit_map.set(y_pos, x_pos - 1, 1);
+                *index += 1;
+            }
+
+            y_pos += 1;
+        }
+    }
+    
+    let mut index = 0;
+    let mut x_pos = bit_map.size() - 1;
+
+    while x_pos > 7 {
+        place_bits_up(bit_map, reservations, bits, &mut index, x_pos);
+        x_pos -= 2;
+        if x_pos < 7 {
             break;
         }
-
-        while position.1 < size {
-            place_row(bit_map, &position.0, &position.1, &mut index);
-            position.1 += 1;
-        }
-
-        going_up = true;
-
-        position.0 -= 2;
+        place_bits_down(bit_map, reservations, bits, &mut index, x_pos);
+        x_pos -= 2;
     }
 
-    position.0 -= 1;
+    x_pos -= 1;
 
-    while index < bits.len() {
-        if going_up {
-            while position.1 > 0 {
-                place_row(bit_map, &position.0, &position.1, &mut index);
-                position.1 -= 1;
-            }
-
-            if position.0 > 1 {
-                position.0 -= 2;
-            } else {
-                test_println!("{}", index);
-                return;
-            }
-        } else {
-            going_up = true;
+    loop {
+        place_bits_up(bit_map, reservations, bits, &mut index, x_pos);
+        if x_pos < 2 {
+            break;
         }
-
-        while position.1 < size {
-            place_row(bit_map, &position.0, &position.1, &mut index);
-            position.1 += 1;
+        x_pos -= 2;
+        place_bits_down(bit_map, reservations, bits, &mut index, x_pos);
+        if x_pos < 2 {
+            break;
         }
-
-        if position.0 > 1 {
-            position.0 -= 2;
-        } else {
-            test_println!("{}", index);
-            return;
-        }
+        x_pos -= 2;
     }
+    
+    test_println!("Actual: {}", index);
 }
 
 fn reserve_format_information_areas(reservations: &mut BitMap) {
@@ -815,8 +816,8 @@ fn reserve_format_information_areas(reservations: &mut BitMap) {
 
 fn create_dark_module(bit_map: &mut BitMap, reservations: &mut BitMap) {
     let size = bit_map.size();
-    bit_map.set(size - 7, 8, 1);
-    reservations.set(size - 7, 8, 1);
+    bit_map.set(size - 8, 8, 1);
+    reservations.set(size - 8, 8, 1);
 }
 
 fn create_timing_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {

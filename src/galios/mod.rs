@@ -181,36 +181,35 @@ pub fn get_antilog(value: i32) -> i32 {
     ANTI_LOG_TABLE[value as usize] as i32
 }
 
-// This could be useful in the future but for now the 
-// log antilog tables are a much better approach
-// fn galios_reduction(exponent: u32) -> u8 {
-//     let mut value;
-//     if exponent > 7 {
-//         value = galios_reduction(exponent - 1) as u32 * 2;
-//     } else {
-//         value = 2_u32.pow(exponent);
-//     }
-// 
-//     if value > 255 {
-//         value ^= 285;
-//     }
-// 
-//     value as u8
-// }
-
 
 #[cfg(test)]
 mod test {
     use super::*;
 
-    // #[test]
-    // fn test_galios_reduction() {
-    //     assert_eq!(29, galios_reduction(8));
-    //     assert_eq!(58, galios_reduction(9));
-    //     assert_eq!(116, galios_reduction(10));
-    //     assert_eq!(232, galios_reduction(11));
-    //     assert_eq!(205, galios_reduction(12));
-    // }
+    #[test]
+    fn test_xor_with_other_generator() {
+        let mut poly = GeneratorPolynomial::from(
+            vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
+
+        let mut generator = GeneratorPolynomial::from(
+            vec![1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0]
+        );
+
+        poly = poly.xor_with_other(&generator);
+        poly = poly.drop_leading_zeros();
+        assert_eq!(*poly.get(), vec![1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0]);
+
+        generator = GeneratorPolynomial::from(
+            vec![1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0]
+        );
+
+
+        poly = poly.xor_with_other(&generator);
+        poly = poly.drop_leading_zeros();
+        assert_eq!(*poly.get(), vec![1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0]);
+    }
+
 
     #[test]
     fn test_polynomial_multiply() {
