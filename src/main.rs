@@ -33,7 +33,7 @@ mod bit_utils;
 mod galios;
 
 fn main() {
-    let mut my_qr = QRMode::analyze_data("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT", ErrorCorrectionLevel::Q);
+    let mut my_qr = QRMode::analyze_data("HELLO WORLD", ErrorCorrectionLevel::Q);
     let mut bits = my_qr.encode();
     let qr_data = my_qr.generate_error_correction(bits);
     bits = my_qr.structure_codewords(qr_data);

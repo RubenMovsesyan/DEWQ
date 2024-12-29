@@ -11,7 +11,7 @@ extern crate std;
 use std::fmt::Display;
 
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Bit {
     Zero,
     One,

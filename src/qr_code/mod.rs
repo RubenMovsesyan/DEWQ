@@ -119,6 +119,8 @@ impl QRMode {
                 }
             }
 
+            test_println!("{}", data.len());
+
             let version = {
                 let mut out: usize = 0;
                 for version_index in (0..MAX_VERSION).rev() {
@@ -151,6 +153,8 @@ impl QRMode {
                 }
                 out
             };
+
+            test_println!("{}", version);
 
             return QRMode::AlphaNumeric(AlphaNumericQrCode {
                 data,
@@ -195,6 +199,7 @@ impl QRMode {
                 for i in (0..size_of_character_length_bits).rev() {
                     bit_string.push_bit((alpha_numeric_qr_code.data.len() & (1 << i)) as i32);
                 }
+
 
                 // Encode the values
                 for value_index in (0..alpha_numeric_qr_code.data.len()).step_by(2) {
@@ -280,6 +285,7 @@ impl QRMode {
                 }
 
 
+                test_println!("{}", bit_string);
                 return bit_string;
             },
             QRMode::Byte(_bytes) => {
@@ -377,6 +383,7 @@ impl QRMode {
                     match self {
                         QRMode::Numeric(_data) => todo!(),
                         QRMode::AlphaNumeric(alpha_numeric_qr_code) => {
+                            test_println!("version: {}", alpha_numeric_qr_code.version);
                             match alpha_numeric_qr_code.error_correction_level {
                                 ErrorCorrectionLevel::L => L_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
                                 ErrorCorrectionLevel::M => M_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
@@ -387,6 +394,8 @@ impl QRMode {
                         QRMode::Byte(_data) => todo!(),
                     }
                 };
+                
+                test_println!("num_e_codewords: {}", num_error_codewords);
 
                 for i in 1..num_error_codewords {
                     poly = poly.multiply_as_exponents(&GeneratorPolynomial::from(vec![0, i as i32]));
@@ -395,10 +404,12 @@ impl QRMode {
 
                 poly
             };
-
+            
+            test_println!("gen_size: {}", generator_polynomial.get().len());
             
             // Perform the long division on the message polynomial with the generator polynomial
             let size = message_polynomial.get().len();
+            test_println!("poly_size: {}", size);
             let mut current_xor = message_polynomial.to_exponent_notation();
 
             for _ in 0..size {
@@ -411,6 +422,7 @@ impl QRMode {
 
             // Current xor is the error correction codewords to use in exponent notation
             let error_correction_nums = current_xor.to_integer_notation();
+            test_println!("e_len_pre: {}", error_correction_nums.get().len());
 
             // WARNING: if this doesn't give the correct result
             // then try changing the logic in push_byte to push it
@@ -432,48 +444,60 @@ impl QRMode {
         }
 
 
+        {
+            let mut d_len = 0;
+            for d in data.iter() {
+                d_len += d.len();
+            }
+            let mut e_len = 0;
+            for e in error_correction_data.iter() {
+                e_len += e.len();
+            }
+
+            test_println!("d_len: {}, e_len: {}", d_len, e_len);
+        }
+
         (data, error_correction_data)
     }
 
     pub fn structure_codewords(&self, data: (Vec<Vec<u8>>, Vec<Vec<u8>>)) -> BitString {
         let mut new_data: Vec<u8> = Vec::new();
-        let max_index = data.0[0].len().max(data.0[1].len()).max(data.0[2].len()).max(data.0[3].len());
+        let max_index = {
+            let mut max = data.0[0].len();
+
+            for val in data.0.iter() {
+                max = max.max(val.len());
+            }
+
+            max
+        };
+
+        test_println!("max_index_d: {}", max_index);
         // Interleave the data codewords
         for i in 0..max_index {
-            if data.0[0].len() > i {
-                new_data.push(data.0[0][i]);
-            }
-
-            if data.0[1].len() > i {
-                new_data.push(data.0[1][i]);
-            }
-
-            if data.0[2].len() > i {
-                new_data.push(data.0[2][i]);
-            }
-
-            if data.0[3].len() > i {
-                new_data.push(data.0[3][i]);
+            for value in data.0.iter() {
+                if value.len() > i {
+                    new_data.push(value[i]);
+                }
             }
         }
 
-        let max_index = data.1[0].len().max(data.1[1].len()).max(data.1[2].len()).max(data.1[3].len());
+        let max_index = {
+            let mut max = data.1[0].len();
+
+            for val in data.1.iter() {
+                max = max.max(val.len());
+            }
+
+            max
+        };        
+        test_println!("max_index_e: {}", max_index);
         // Interleave the error codewords
         for i in 0..max_index {
-            if data.1[0].len() > i {
-                new_data.push(data.1[0][i]);
-            }
-
-            if data.1[1].len() > i {
-                new_data.push(data.1[1][i]);
-            }
-
-            if data.1[2].len() > i {
-                new_data.push(data.1[2][i]);
-            }
-
-            if data.1[3].len() > i {
-                new_data.push(data.1[3][i]);
+            for value in data.1.iter() {
+                if value.len() > i {
+                    new_data.push(value[i]);
+                }
             }
         }
         
@@ -495,6 +519,7 @@ impl QRMode {
             new_bitstring.push_bit(0);
         }
 
+        test_println!("len: {}", new_bitstring);
         new_bitstring
     }
 
@@ -508,22 +533,170 @@ impl QRMode {
             }
         };
 
-        let size = 21 + (4 * version);
+        let size = 21 + (4 * (version ));
 
         let mut bit_map = BitMap::new(size);
         let mut reservations = BitMap::new(size);
-        bit_map.invert();
-        reservations.invert();
         create_finder_patterns(&mut bit_map, &mut reservations);
         create_alignment_patterns(&mut bit_map, &mut reservations);
         create_timing_patterns(&mut bit_map, &mut reservations);
         create_dark_module(&mut bit_map, &mut reservations);
         reserve_format_information_areas(&mut reservations);
         place_data_bits(&mut bit_map, &reservations, &bits);
-
-        test_println!("{}", bits);
+        // test_println!("{}", bit_map);
+        mask_data(&mut bit_map, &reservations);
+        add_format_information(&mut bit_map, {
+            match self {
+                QRMode::Numeric(_data) => { todo!() },
+                QRMode::AlphaNumeric(alpha_numeric_qr_code) => { &alpha_numeric_qr_code.error_correction_level },
+                QRMode::Byte(_data) => { todo!() },
+            }
+        }, &version);
+        // test_println!("{}", bits);
+        test_println!("{}", reservations);
         test_println!("{}", bit_map);
-        // test_println!("{}", reservations);
+    }
+}
+
+fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCorrectionLevel, version: &usize) {
+    let mut bits = Vec::with_capacity(15);
+    match error_correction_level {
+        ErrorCorrectionLevel::L => { bits.push(0); bits.push(1); },
+        ErrorCorrectionLevel::M => { bits.push(0); bits.push(0); },
+        ErrorCorrectionLevel::Q => { bits.push(1); bits.push(1); },
+        ErrorCorrectionLevel::H => { bits.push(1); bits.push(0); },
+    }
+
+    // Add the mask pattern bits
+    bits.push(0);
+    bits.push(0);
+    bits.push(1);
+
+    for _ in 0..10 {
+        bits.push(0);
+    }
+
+    let mut bits_poly = GeneratorPolynomial::from(bits.clone());
+    bits_poly = bits_poly.drop_leading_zeros();
+
+
+    while bits_poly.len() > 10 {
+        let generator_poly = GeneratorPolynomial::from({
+            let mut output = vec![1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1];
+
+            for _ in output.len()..bits_poly.len() {
+                output.push(0);
+            }
+
+            output
+        });
+
+        // test_println!("{}", bits_poly);
+        // test_println!("{}", generator_poly);
+
+        // Perform the division 4 times
+        bits_poly = bits_poly.xor_with_other(&generator_poly);
+        bits_poly = bits_poly.drop_leading_zeros();
+
+        // test_println!("{}", bits_poly);
+        // test_println!("{}", generator_poly);
+    }
+
+    test_println!("{}", bits_poly);
+
+    let prepend = {
+        let mut prepend_vec = Vec::with_capacity(10 - bits_poly.len());
+        for _ in bits_poly.len()..10 {
+            prepend_vec.push(0);
+        }
+        prepend_vec
+    };
+
+    bits_poly.prepend(prepend);
+
+    test_println!("{}", bits_poly);
+
+    let mut format_bits = {
+        let mut output = BitString::new();
+        for i in 0..=4 {
+            output.push_bit(bits[i]);
+        }
+
+        for coefficient in bits_poly.get() {
+            output.push_bit(*coefficient);
+        }
+
+        output
+    };
+
+    // Mask the new bitstring
+    // NOTE: Currently using masking number 1
+    let mask_bits = match error_correction_level {
+        ErrorCorrectionLevel::L => {
+            BitString::from_string("111001011110011")
+        },
+        ErrorCorrectionLevel::M => {
+            BitString::from_string("101000100100101")
+        },
+        ErrorCorrectionLevel::Q => {
+            BitString::from_string("011000001101000")
+        },
+        ErrorCorrectionLevel::H => {
+            BitString::from_string("001001110111110")
+        },
+    };
+    
+    test_println!("{}", format_bits);
+    let _ = format_bits.xor_with_other(&mask_bits);
+    test_println!("{}", format_bits);
+
+    // Put the bits into the bitmap
+    let mut index = 0;
+    if *version < 7 {
+        for i in 0..=5 {
+            // Come up with a better solution than this
+            let bit = unsafe { format_bits.get_bit(index).unwrap_unchecked() };
+            bit_map.set(8, i, bit);
+            bit_map.set(bit_map.size() - i, 8, bit);
+            index += 1;
+        }
+
+        // Add bits 6, 7, and 8
+        let (bit_6, bit_7, bit_8) = (
+            unsafe { format_bits.get_bit(index).unwrap_unchecked() },
+            unsafe { format_bits.get_bit(index + 1).unwrap_unchecked() },
+            unsafe { format_bits.get_bit(index + 2).unwrap_unchecked() },
+        );
+        index += 3;
+
+        bit_map.set(bit_map.size() - 6, 8, bit_6);
+        bit_map.set(8, 7, bit_6);
+
+        bit_map.set(8, 8, bit_7);
+        bit_map.set(8, bit_map.size() - 7, bit_7);
+
+        bit_map.set(7, 8, bit_8);
+        bit_map.set(8, bit_map.size() - 6, bit_8);
+
+        for i in 9..=14 {
+            let bit = unsafe { format_bits.get_bit(index).unwrap_unchecked() };
+            index += 1;
+            bit_map.set(14 - i, 8, bit);
+            bit_map.set(8, bit_map.size() - (15 - i), bit);
+        }
+    }
+}
+
+fn mask_data(bit_map: &mut BitMap, reservations: &BitMap) {
+    // Doing data masking number 1
+    for row in 0..bit_map.size() {
+        if row % 2 == 0 {
+            for column in 0..bit_map.size() {
+                if reservations.get(row, column) == Bit::Zero {
+                    bit_map.invert_bit(row, column);
+                }
+            }
+        }
     }
 }
 
@@ -532,197 +705,86 @@ fn place_data_bits(bit_map: &mut BitMap, reservations: &BitMap, bits: &BitString
     let size = bit_map.size();
     let mut position = (size - 1, size - 1);
     let mut index = 0;
+        
+    test_println!("here {}", bits.len());
+    let place_row = |bm: &mut BitMap, x: &usize, y: &usize, ind: &mut usize| {
+            for i in 0..=1 {
+                if reservations.get(*y, *x - i) == Bit::Zero {
+                    bm.set(*y, *x - i, {
+                        let mut out = 1;
+                        if let Ok(bit) = bits.get_bit(*ind) {
+                            match bit {
+                                Bit::Zero => out = 0,
+                                Bit::One => {},
+                            }
+                        } else {
+                            test_println!("out of bounds");
+                            return;
+                        }
 
+                        out
+                    });
+                    *ind += 1;
+                }
+            }
+    };
+    
+    let mut going_up: bool = true;
     while position.0 > 6 {
         while position.1 > 0 {
-            if index >= bits.len() {
-                break;
-            }
-            if reservations.get(position.1, position.0) == Bit::One {
-                bit_map.set(position.1, position.0, {
-                    let mut out = 1;
-                    if let Ok(bit) = bits.get_bit(index) {
-                        match bit {
-                            Bit::Zero => out = 0,
-                            Bit::One => {},
-                        }
-                    }
-
-                    out
-                });
-                index += 1;
-            }
-
-            position.0 -= 1;
-
-            if index >= bits.len() {
-                break;
-            }
-            if reservations.get(position.1, position.0) == Bit::One {
-                bit_map.set(position.1, position.0, {
-                    let mut out = 1;
-                    if let Ok(bit) = bits.get_bit(index) {
-                        match bit {
-                            Bit::Zero => out = 0,
-                            Bit::One => {},
-                        }
-                    }
-
-                    out
-                });
-                index += 1;
-            }
-
-            position.0 += 1;
+            place_row(bit_map, &position.0, &position.1, &mut index);
             position.1 -= 1;
         }
 
-        position.0 -= 2;
 
+        going_up = false;
+
+        position.0 -= 2;
+        
         if position.0 <= 6 {
             break;
         }
 
-        while position.1 < size - 1 {
-            if index >= bits.len() {
-                break;
-            }
-            if reservations.get(position.1, position.0) == Bit::One {
-                bit_map.set(position.1, position.0, {
-                    let mut out = 1;
-                    if let Ok(bit) = bits.get_bit(index) {
-                        match bit {
-                            Bit::Zero => out = 0,
-                            Bit::One => {},
-                        }
-                    }
-
-                    out
-                });
-                index += 1;
-            }
-
-            position.0 -= 1;
-
-            if index >= bits.len() {
-                break;
-            }
-            if reservations.get(position.1, position.0) == Bit::One {
-                bit_map.set(position.1, position.0, {
-                    let mut out = 1;
-                    if let Ok(bit) = bits.get_bit(index) {
-                        match bit {
-                            Bit::Zero => out = 0,
-                            Bit::One => {},
-                        }
-                    }
-
-                    out
-                });
-                index += 1;
-            }
-
-            position.0 += 1;
+        while position.1 < size {
+            place_row(bit_map, &position.0, &position.1, &mut index);
             position.1 += 1;
         }
+
+        going_up = true;
 
         position.0 -= 2;
     }
-    
-    while position.0 > 0 {
-        while position.1 > 0 {
-            if index >= bits.len() {
-                break;
-            }
-            if reservations.get(position.1, position.0) == Bit::One {
-                bit_map.set(position.1, position.0, {
-                    let mut out = 1;
-                    if let Ok(bit) = bits.get_bit(index) {
-                        match bit {
-                            Bit::Zero => out = 0,
-                            Bit::One => {},
-                        }
-                    }
 
-                    out
-                });
-                index += 1;
+    position.0 -= 1;
+
+    while index < bits.len() {
+        if going_up {
+            while position.1 > 0 {
+                place_row(bit_map, &position.0, &position.1, &mut index);
+                position.1 -= 1;
             }
 
-            position.0 -= 1;
-
-            if index >= bits.len() {
-                break;
+            if position.0 > 1 {
+                position.0 -= 2;
+            } else {
+                test_println!("{}", index);
+                return;
             }
-            if reservations.get(position.1, position.0) == Bit::One {
-                bit_map.set(position.1, position.0, {
-                    let mut out = 1;
-                    if let Ok(bit) = bits.get_bit(index) {
-                        match bit {
-                            Bit::Zero => out = 0,
-                            Bit::One => {},
-                        }
-                    }
-
-                    out
-                });
-                index += 1;
-            }
-
-            position.0 += 1;
-            position.1 -= 1;
+        } else {
+            going_up = true;
         }
 
-        position.0 -= 2;
-
-        if position.0 <= 0 {
-            break;
-        }
-
-        while position.1 < size - 1 {
-            if index >= bits.len() {
-                break;
-            }
-            if reservations.get(position.1, position.0) == Bit::One {
-                bit_map.set(position.1, position.0, {
-                    let mut out = 1;
-                    if let Ok(bit) = bits.get_bit(index) {
-                        match bit {
-                            Bit::Zero => out = 0,
-                            Bit::One => {},
-                        }
-                    }
-
-                    out
-                });
-                index += 1;
-            }
-
-            position.0 -= 1;
-
-            if index >= bits.len() {
-                break;
-            }
-            if reservations.get(position.1, position.0) == Bit::One {
-                bit_map.set(position.1, position.0, {
-                    let mut out = 1;
-                    if let Ok(bit) = bits.get_bit(index) {
-                        match bit {
-                            Bit::Zero => out = 0,
-                            Bit::One => {},
-                        }
-                    }
-
-                    out
-                });
-                index += 1;
-            }
-
-            position.0 += 1;
+        while position.1 < size {
+            place_row(bit_map, &position.0, &position.1, &mut index);
             position.1 += 1;
         }
 
-        position.0 -= 2;
+        if position.0 > 1 {
+            position.0 -= 2;
+        } else {
+            test_println!("{}", index);
+            return;
+        }
     }
 }
 
@@ -733,39 +795,39 @@ fn reserve_format_information_areas(reservations: &mut BitMap) {
 
     if version >= 7 {
         for i in 0..=5 {
-            reservations.set(i, size - 11, 0);
-            reservations.set(i, size - 10, 0);
-            reservations.set(i, size - 9, 0);
+            reservations.set(i, size - 11, 1);
+            reservations.set(i, size - 10, 1);
+            reservations.set(i, size - 9, 1);
 
-            reservations.set(size - 11, i, 0);
-            reservations.set(size - 10, i, 0);
-            reservations.set(size - 9, i, 0);
+            reservations.set(size - 11, i, 1);
+            reservations.set(size - 10, i, 1);
+            reservations.set(size - 9, i, 1);
         }
     } else {
         for i in 0..=8 {
-            reservations.set(i, 8, 0);
-            reservations.set(8, i, 0);
-            reservations.set(size - i, 8, 0);
-            reservations.set(8, size - i, 0);
+            reservations.set(i, 8, 1);
+            reservations.set(8, i, 1);
+            reservations.set(size - i, 8, 1);
+            reservations.set(8, size - i, 1);
         }
     }
 }
 
 fn create_dark_module(bit_map: &mut BitMap, reservations: &mut BitMap) {
     let size = bit_map.size();
-    bit_map.set(size - 7, 8, 0);
-    reservations.set(size - 7, 8, 0);
+    bit_map.set(size - 7, 8, 1);
+    reservations.set(size - 7, 8, 1);
 }
 
 fn create_timing_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
     for i in 7..(bit_map.size() - 7) {
         if i % 2 == 0 {
-            bit_map.set(i, 6, 0);
-            bit_map.set(6, i, 0);
+            bit_map.set(i, 6, 1);
+            bit_map.set(6, i, 1);
         }
 
-        reservations.set(i, 6, 0);
-        reservations.set(6, i, 0);
+        reservations.set(i, 6, 1);
+        reservations.set(6, i, 1);
     }
 }
 
@@ -793,19 +855,19 @@ fn create_alignment_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
     }
 
     let add_alignment_pattern = |bm: &mut BitMap, rv: &mut BitMap, i: usize, j: usize| {
-        bm.set(i, j, 0);
+        bm.set(i, j, 1);
         
         for x in -2..=2 as isize {
-            bm.set(i - 2, (j as isize + x) as usize, 0);
-            bm.set(i + 2, (j as isize + x) as usize, 0);
-            bm.set((i as isize + x) as usize, j + 2, 0);
-            bm.set((i as isize + x) as usize, j - 2, 0);
+            bm.set(i - 2, (j as isize + x) as usize, 1);
+            bm.set(i + 2, (j as isize + x) as usize, 1);
+            bm.set((i as isize + x) as usize, j + 2, 1);
+            bm.set((i as isize + x) as usize, j - 2, 1);
         }
 
         // Reserve the alignment patterns
         for rev_x in -2..=2 as isize {
             for rev_y in -2..=2 as isize {
-                rv.set((rev_x + i as isize) as usize, (rev_y + j as isize) as usize, 0);
+                rv.set((rev_x + i as isize) as usize, (rev_y + j as isize) as usize, 1);
             }
         }
     };
@@ -831,22 +893,22 @@ fn create_finder_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
 
     let mut add_finder = |i: usize, j: usize| {
         for x in 0..7 {
-            bit_map.set(i, j + x, 0);
-            bit_map.set(i + 6, j + x, 0);
+            bit_map.set(i, j + x, 1);
+            bit_map.set(i + 6, j + x, 1);
 
-            bit_map.set(i + x, j, 0);
-            bit_map.set(i + x, j + 6, 0);
+            bit_map.set(i + x, j, 1);
+            bit_map.set(i + x, j + 6, 1);
         }
 
         for x in 2..5 {
             for y in 2..5 {
-                bit_map.set(i + x, j + y, 0);
+                bit_map.set(i + x, j + y, 1);
             }
         }
 
         for reservation_x in 0..7 {
             for reservation_y in 0..7 {
-                reservations.set(reservation_x + i, reservation_y + j, 0);
+                reservations.set(reservation_x + i, reservation_y + j, 1);
             }
         }
     };
@@ -857,16 +919,16 @@ fn create_finder_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
     
     // Reserve the separators
     for reservation_index in 0..=7 {
-        reservations.set(7, reservation_index, 0);
-        reservations.set(reservation_index, 7, 0);
+        reservations.set(7, reservation_index, 1);
+        reservations.set(reservation_index, 7, 1);
 
 
-        reservations.set(size - 8, reservation_index, 0);
-        reservations.set(size - reservation_index, 7, 0);
+        reservations.set(size - 8, reservation_index, 1);
+        reservations.set(size - reservation_index, 7, 1);
 
 
-        reservations.set(reservation_index, size - 8, 0);
-        reservations.set(7, size - reservation_index, 0);
+        reservations.set(reservation_index, size - 8, 1);
+        reservations.set(7, size - reservation_index, 1);
     }
 }
 

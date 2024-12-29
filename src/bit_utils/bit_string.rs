@@ -28,10 +28,27 @@ pub struct BitString {
 
 impl BitString {
     pub fn new() -> BitString {
-        BitString {
+        Self {
             bits: Vec::new(),
             bits_len: 0,
         }
+    }
+
+    pub fn from_string<'a, S>(string: S) -> BitString
+        where S: Into<&'a str>
+    {
+        let mut output = BitString::new();
+        
+        let str_ref: &str = string.into();
+
+        for character in str_ref.chars().collect::<Vec<char>>().iter() {
+            match character {
+                '0' => output.push_bit(Bit::Zero),
+                _ => output.push_bit(Bit::One),
+            }
+        }
+
+        output
     }
 
     pub fn push_bit<B>(&mut self, bit: B)
@@ -65,7 +82,7 @@ impl BitString {
     }
 
     pub fn get_bit(&self, address: usize) -> Result<Bit, BitAddressOutOfBoundsError> {
-        if address > self.bits_len {
+        if address >= self.bits_len {
             return Err(BitAddressOutOfBoundsError);
         }
 
@@ -78,6 +95,32 @@ impl BitString {
         }
     }
 
+    pub fn xor_with_other(&mut self, other: &BitString) -> Result<(), BitIndiciesDontMatchError> {
+        if self.bits_len != other.bits_len {
+            return Err(BitIndiciesDontMatchError);
+        }
+        
+        for index in 0..self.bits.len() {
+            self.bits[index] ^= other.bits[index];
+        }
+
+        // for address in 0..self.bits_len {
+        //     let bit_address = address / 8;
+        //     let bit_offset = address % 8;
+
+        //     // We know that the bit index will be valid for both since they are they are
+        //     // same length
+        //     unsafe {
+        //         self.bits[bit_address] ^= match other.get_bit(address).unwrap_unchecked() {
+        //             Bit::Zero => 0,
+        //             Bit::One => 1
+        //         } << bit_offset;
+        //     }
+        // }
+
+        Ok(())
+    }
+
     pub fn get_byte(&self, index: usize) -> u8 {
         self.bits[index]
     }
@@ -88,6 +131,25 @@ impl BitString {
 
     pub fn len(&self) -> usize {
         self.bits_len
+    }
+
+    // TODO: make sure to check if the bit string is right shiftable
+    pub fn right_shift(&mut self) {
+        for index in (0..self.bits.len()).rev() {
+            let byte = self.bits[index];
+            
+            if byte & 1 == 1 {
+                if index >= self.bits.len() - 1 {
+                    self.bits.push(0);
+                }
+                self.bits[index + 1] |= 0b10000000;
+            }
+
+
+            self.bits[index] >>= 1;
+        }
+
+        self.bits_len += 1;
     }
 }
 
@@ -108,6 +170,8 @@ impl Display for BitString {
 #[derive(Debug, Clone)]
 pub struct BitAddressOutOfBoundsError;
 
+#[derive(Debug, Clone)]
+pub struct BitIndiciesDontMatchError;
 
 #[cfg(test)]
 mod test {
@@ -204,5 +268,38 @@ mod test {
 
         bits.push_byte(1);
         assert_eq!("101000000001", format!("{}", bits));
+    }
+
+    #[test]
+    fn test_xor_with_other() {
+        let mut bits = BitString::new();
+        bits.push_byte(255);
+
+        let mut xor_bits = BitString::new();
+        xor_bits.push_byte(254);
+        
+        let _ = bits.xor_with_other(&xor_bits);
+        assert_eq!("00000001", format!("{}", bits));
+
+        bits = BitString::from_string("110010001111010");
+        xor_bits = BitString::from_string("011000001101000");
+
+        let _ = bits.xor_with_other(&xor_bits);
+        assert_eq!("101010000010010", format!("{}", bits));
+    }
+
+    #[test]
+    fn test_right_shift() {
+        let mut bits = BitString::new();
+        bits.push_byte(255);
+        assert_eq!("11111111", format!("{}", bits));
+        bits.right_shift();
+        assert_eq!("011111111", format!("{}", bits));
+    }
+
+    #[test]
+    fn test_bitstring_from_string() {
+        let bits = BitString::from_string("1110111010");
+        assert_eq!("1110111010", format!("{}", bits));
     }
 }

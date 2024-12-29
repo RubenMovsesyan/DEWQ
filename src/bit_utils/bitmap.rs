@@ -67,6 +67,8 @@ impl BitMap {
         }
     }
 
+    // NOTE: This can be done better by using the entire byte to invert rather
+    // than bit by bit
     pub fn invert(&mut self) {
         for i in 0..self.size {
             let row = &mut self.map[i];
@@ -76,6 +78,15 @@ impl BitMap {
                 row[byte] ^= 1 << byte_offset;
             }
         }
+    }
+
+    pub fn invert_bit(&mut self, i: usize, j: usize) {
+        let row = &mut self.map[i];
+
+        let byte = j / 8;
+        let byte_offset = j % 8;
+
+        row[byte] ^= 1 << byte_offset;
     }
 
     pub fn get(&self, i: usize, j: usize) -> Bit {
@@ -98,16 +109,25 @@ impl BitMap {
 ))]
 impl Display for BitMap {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        for _ in 0..=self.size {
+            write!(f, "██")?;
+        }
+        writeln!(f, "██")?;
         for i in 0..self.size {
+            write!(f, "██")?;
             for j in 0..self.size {
                 match self.get(i, j) {
-                    Bit::Zero => { write!(f, "⬛")?; }
-                    Bit::One => { write!(f, "⬜")?; }
+                    Bit::Zero => { write!(f, "██")?; }
+                    Bit::One => { write!(f, "  ")?; }
                 }
             }
-            writeln!(f)?;
+            writeln!(f, "██")?;
         }
 
+        for _ in 0..=self.size {
+            write!(f, "██")?;
+        }
+        writeln!(f, "██")?;
         Ok(())
     }
 }
@@ -129,7 +149,7 @@ mod test {
     fn test_bitmap_sizing() {
         let bit_map = BitMap::new(10);
 
-        assert_eq!(bit_map.map.len(), 10);
+        assert_eq!(bit_map.map.len(), 11);
         assert_eq!(bit_map.map[0].len(), 2);
     }
 }

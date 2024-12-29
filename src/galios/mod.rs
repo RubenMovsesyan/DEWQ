@@ -4,6 +4,18 @@ use crate::alloc::vec;
 
 mod constants;
 
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
+extern crate std;
+
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
+use std::fmt::Display;
+
 pub struct GeneratorPolynomial {
     coefficients: Vec<i32>
 }
@@ -21,8 +33,26 @@ impl GeneratorPolynomial {
         }
     }
 
+    pub fn prepend<V>(&mut self, coefficients: Vec<V>)
+        where V: Into<i32>
+    {
+        self.coefficients = {
+            let mut new_vec = Vec::with_capacity(coefficients.len() + self.coefficients.len());
+            for element in coefficients {
+                new_vec.push(element.into());
+            }
+
+            new_vec.append(&mut self.coefficients);
+            new_vec
+        };
+    }
+
     pub fn get(&self) -> &Vec<i32> {
         &self.coefficients
+    }
+
+    pub fn len(&self) -> usize {
+        self.coefficients.len()
     }
 
     pub fn multiply_galios_256(&self, other: &GeneratorPolynomial) -> Self {
@@ -130,6 +160,19 @@ impl GeneratorPolynomial {
     }
 }
 
+
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
+impl Display for GeneratorPolynomial {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        writeln!(f, "{:?}", self.coefficients)?;
+
+        Ok(())
+    }
+}
+
 pub fn get_log(exponent: i32) -> i32 {
     LOG_TABLE[exponent as usize] as i32
 }
@@ -198,6 +241,31 @@ mod test {
         poly = poly.multiply_as_exponents(&other_poly);
 
         assert_eq!(*poly.get(), vec![0, 198, 199, 3]);
+    }
+
+    #[test]
+    fn test_polynomial_division() {
+        let mut message_poly = GeneratorPolynomial::from(
+            vec![
+                246,
+                246,
+                66,
+                7,
+                118,
+                134,
+                242,
+                7,
+                38,
+                86,
+                22,
+                198,
+                199,
+                146,
+                6
+            ]
+        );
+
+
     }
 
     #[test]
