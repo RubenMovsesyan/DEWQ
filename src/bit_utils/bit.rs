@@ -17,16 +17,22 @@ pub enum Bit {
     One,
 }
 
-impl<I> From<I> for Bit
-    where I: Into<i32>
-{
-    fn from(value: I) -> Bit {
-        match value.into() {
-            0 => Bit::Zero,
-            _ => Bit::One,
-        }
-    }
+macro_rules! impl_from_for_bit {
+    ($($t:ty), *) => {
+        $(
+            impl From<$t> for Bit {
+                fn from(value: $t) -> Self {
+                    match value {
+                        0 => Bit::Zero,
+                        _ => Bit::One,
+                    }
+                }
+            }
+        )*
+    };
 }
+
+impl_from_for_bit!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
 
 #[cfg(any(
         test,

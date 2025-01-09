@@ -54,6 +54,27 @@ pub enum ErrorCorrectionLevel {
     H,
 }
 
+impl ErrorCorrectionLevel {
+    pub fn get_format_bits(&self) -> u32 {
+        match self {
+            ErrorCorrectionLevel::L => 0b01,
+            ErrorCorrectionLevel::M => 0b00,
+            ErrorCorrectionLevel::Q => 0b11,
+            ErrorCorrectionLevel::H => 0b10,
+        }
+    }
+
+    // TODO: add functionality for multiple mask patterns
+    pub fn get_format_mask_bits(&self) -> u32 {
+        match self {
+            ErrorCorrectionLevel::L => 0x77C4,
+            ErrorCorrectionLevel::M => 0x5412,
+            ErrorCorrectionLevel::Q => 0x355F,
+            ErrorCorrectionLevel::H => 0x1689,
+        }
+    }
+}
+
 // ------------------ Helper functions ----------------------
 
 fn is_numeric(input: &str) -> bool {
@@ -119,7 +140,7 @@ impl QRMode {
                 }
             }
 
-            test_println!("{}", data.len());
+            // test_println!("{}", data.len());
 
             let version = {
                 let mut out: usize = 0;
@@ -537,13 +558,14 @@ impl QRMode {
 
         let mut bit_map = BitMap::new(size);
         let mut reservations = BitMap::new(size);
+
+        // High level overview of the steps to create the QR code
         create_finder_patterns(&mut bit_map, &mut reservations);
         create_alignment_patterns(&mut bit_map, &mut reservations);
         create_timing_patterns(&mut bit_map, &mut reservations);
         create_dark_module(&mut bit_map, &mut reservations);
         reserve_format_information_areas(&mut reservations);
         place_data_bits(&mut bit_map, &reservations, &bits);
-        // test_println!("{}", bit_map);
         mask_data(&mut bit_map, &reservations);
         add_format_information(&mut bit_map, {
             match self {
@@ -552,46 +574,41 @@ impl QRMode {
                 QRMode::Byte(_data) => { todo!() },
             }
         }, &version);
-        // test_println!("{}", bits);
-        // test_println!("{}", reservations);
         test_println!("{}", bit_map);
     }
 }
 
 fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCorrectionLevel, version: &usize) {
-    // NOTE: Find out why this works and that the siginificance of all the numbers are
+    // HACK: temparory mask variable while still testing with only mask 0
+    let mask = 0;
+    
+    // Get the format information bits and error correction for those bits
     let bits: u32 = {
-        let data = match error_correction_level {
-            ErrorCorrectionLevel::L => { (u32::from(1 as u32) << 3) | 0 },
-            ErrorCorrectionLevel::M => { (u32::from(0 as u32) << 3) | 0 },
-            ErrorCorrectionLevel::Q => { (u32::from(3 as u32) << 3) | 0 },
-            ErrorCorrectionLevel::H => { (u32::from(2 as u32) << 3) | 0 },
-        };
+        let data = error_correction_level.get_format_bits() << 3 | mask;
+        
+        // Generator polynomial: x^10 + x^8 + x^5 + x^4 + x^2 + x + 1
+        let generator_polynomial = 0x537;
 
         let mut rem: u32 = data;
-        for _ in 0..10 {
-            rem = (rem << 1) ^ ((rem >> 9) * 0x537);
+        // This is the same as doing a division by the generator polynomial until the remainder is
+        // less than 1024
+        for _i in 0..10 {
+            rem = (rem << 1) ^ ((rem >> 9) * generator_polynomial);
         }
 
-        ((data << 10) | rem) ^ 0x5412
+        test_println!("data + rem: {:b}", (data << 10) | rem);
+
+        ((data << 10) | rem) ^ error_correction_level.get_format_mask_bits()
     };
-
-    let mut format_bits = BitString::new();
-
-    for i in (0..15).rev() {
-        format_bits.push_bit(match bits & (1 << i) {
-            0 => Bit::Zero,
-            _ => Bit::One
-        });
-    }
-
+    test_println!("data + rem masked: {:b}", bits);
 
     // Put the bits into the bitmap
     let mut index = 0;
+
     if *version < 7 {
         for i in 0..=5 {
             // Come up with a better solution than this
-            let bit = unsafe { format_bits.get_bit(index).unwrap_unchecked() };
+            let bit = bits & (0x4000 >> index);
             bit_map.set(8, i, bit);
             bit_map.set(bit_map.size() - 1 - i, 8, bit);
             index += 1;
@@ -599,9 +616,9 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
 
         // Add bits 6, 7, and 8
         let (bit_6, bit_7, bit_8) = (
-            unsafe { format_bits.get_bit(index).unwrap_unchecked() },
-            unsafe { format_bits.get_bit(index + 1).unwrap_unchecked() },
-            unsafe { format_bits.get_bit(index + 2).unwrap_unchecked() },
+            bits & (0x4000 >> index),
+            bits & (0x4000 >> (index + 1)),
+            bits & (0x4000 >> (index + 2))
         );
         index += 3;
 
@@ -615,11 +632,13 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
         bit_map.set(8, bit_map.size() - 6, bit_8);
 
         for i in 9..=14 {
-            let bit = unsafe { format_bits.get_bit(index).unwrap_unchecked() };
+            let bit = bits & (0x4000 >> index);
             index += 1;
             bit_map.set(14 - i, 8, bit);
             bit_map.set(8, bit_map.size() - (15 - i), bit);
         }
+    } else {
+        todo!();
     }
 }
 
