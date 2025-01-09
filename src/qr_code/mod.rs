@@ -73,6 +73,8 @@ impl ErrorCorrectionLevel {
             ErrorCorrectionLevel::H => 0x1689,
         }
     }
+
+
 }
 
 // ------------------ Helper functions ----------------------
