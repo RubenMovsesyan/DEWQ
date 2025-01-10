@@ -1,6 +1,7 @@
 use crate::galios::constants::*;
 use non_std::Vec;
 use crate::alloc::vec;
+use crate::test_utils::{test_println, test_print};
 
 mod constants;
 
@@ -9,6 +10,21 @@ mod constants;
         feature = "test_feature"
 ))]
 extern crate std;
+
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
+#[macro_use]
+use std::println;
+
+
+#[cfg(any(
+        test,
+        feature = "test_feature"
+))]
+#[macro_use]
+use std::print;
 
 #[cfg(any(
         test,
@@ -128,6 +144,23 @@ impl GeneratorPolynomial {
     // make sure the self is longer than other
     pub fn xor_with_other(&self, other: &GeneratorPolynomial) -> Self {
         let mut output: Vec<i32> = self.coefficients.clone();
+        
+        // {
+        //     test_print!("Self: ");
+        //     for e in self.get() {
+        //         test_print!("{:03} ", e);
+        //     }
+        //     test_println!();
+        // }
+
+        // {
+        //     test_print!("othr: ");
+        //     for e in other.get() {
+        //         test_print!("{:03} ", e);
+        //     }
+        //     test_println!();
+        // }
+
 
         for (i, coefficient) in other.coefficients.iter().enumerate() {
             if i >= output.len() {
@@ -333,6 +366,21 @@ mod test {
     }
 
     #[test]
+    fn test_exponent_integer_conversion() {
+        let poly = GeneratorPolynomial::from(
+            vec![89, 226, 76, 16, 72, 181, 4, 149, 44, 70, 43, 241, 50, 0, 51, 8, 18, 46, 137, 38]
+        );
+
+        assert_eq!(vec![210, 95, 16, 4, 226, 42, 2, 184, 240, 48, 218, 174, 194, 255, 125, 3, 224, 130, 74, 15],
+            *poly.to_exponent_notation().get()
+        );
+
+        assert_eq!(vec![89, 226, 76, 16, 72, 181, 4, 149, 44, 70, 43, 241, 50, 0, 51, 8, 18, 46, 137, 38],
+            *poly.to_exponent_notation().to_integer_notation().get()
+        );
+    }
+
+    #[test]
     fn test_xor_with_other() {
         let poly = GeneratorPolynomial::from(vec![
             32,
@@ -387,6 +435,54 @@ mod test {
         ],
         *message_poly.xor_with_other(&poly).get()
         );
+
+
+        let poly = GeneratorPolynomial::from(vec![
+            37,
+            139,
+            11,
+            78,
+            209,
+            12,
+            195,
+            95
+        ]);
+
+        let message_poly = GeneratorPolynomial::from(vec![
+            37,
+            40,
+            217,
+            124,
+            177,
+            182,
+            195,
+            95,
+        ]);
+
+        assert_eq!(vec![
+            0,
+            163,
+            210,
+            50,
+            96,
+            186,
+            0,
+            0,
+        ],
+        *message_poly.xor_with_other(&poly).get()
+        );
+
+        let poly = GeneratorPolynomial::from(
+            vec![253, 246, 102, 63, 62, 93, 200, 48, 88, 32, 102, 180, 244, 81, 95, 248, 242, 88, 100, 14]
+        );
+
+        let message_poly = GeneratorPolynomial::from(
+            vec![253, 175, 132, 115, 46, 21, 125, 52, 205, 12, 32, 159, 5, 99, 95, 203, 250, 74, 74, 135, 038]
+        );
+
+        assert_eq!(vec![0, 89, 226, 76, 16, 72, 181, 4, 149, 44, 70, 43, 241, 50, 0, 51, 8, 18, 46, 137, 38],
+            *message_poly.xor_with_other(&poly).get()
+        )
     }
 
     #[test]
@@ -428,6 +524,14 @@ mod test {
             17
         ],
         *poly.drop_leading_zeros().get()
+        );
+
+        let poly = GeneratorPolynomial::from(
+            vec![0, 89, 226, 76, 16, 72, 181, 4, 149, 44, 70, 43, 241, 50, 0, 51, 8, 18, 46, 137, 38]
+        );
+
+        assert_eq!(vec![89, 226, 76, 16, 72, 181, 4, 149, 44, 70, 43, 241, 50, 0, 51, 8, 18, 46, 137, 38],
+            *poly.drop_leading_zeros().get()
         );
     }
 }

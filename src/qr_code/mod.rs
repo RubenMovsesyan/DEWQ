@@ -2,7 +2,7 @@ use crate::bit_utils::{bit::*, bit_string::*, bitmap::*};
 use crate::galios::*;
 use non_std::Vec;
 use crate::alloc::vec;
-use crate::test_utils::test_println;
+use crate::test_utils::{test_println, test_print};
 
 #[cfg(any(
         test,
@@ -142,7 +142,6 @@ impl QRMode {
                 }
             }
 
-            // test_println!("{}", data.len());
 
             let version = {
                 let mut out: usize = 0;
@@ -176,8 +175,6 @@ impl QRMode {
                 }
                 out
             };
-
-            test_println!("{}", version);
 
             return QRMode::AlphaNumeric(AlphaNumericQrCode {
                 data,
@@ -308,7 +305,8 @@ impl QRMode {
                 }
 
 
-                test_println!("{}", bit_string);
+                //test_println!("{}", bit_string);
+                test_println!("{}", bit_string.as_hex());
                 return bit_string;
             },
             QRMode::Byte(_bytes) => {
@@ -334,6 +332,8 @@ impl QRMode {
                     QRMode::Byte(_data) => { todo!() },
                 }
             };
+
+            test_println!("version: {}", version);
 
             match error_correction_level {
                 ErrorCorrectionLevel::L => {
@@ -371,6 +371,13 @@ impl QRMode {
             }
         };
 
+        // test_println!("{}\n{}\n{}\n{}",
+        //     num_blocks_group_1,
+        //     num_code_words_group_1,
+        //     num_blocks_group_2,
+        //     num_code_words_group_2
+        // );
+
         // Create all the message polynomials from the data codewords
         let mut message_polynomials: Vec<GeneratorPolynomial> = Vec::new();
         let mut index = 0;
@@ -406,7 +413,6 @@ impl QRMode {
                     match self {
                         QRMode::Numeric(_data) => todo!(),
                         QRMode::AlphaNumeric(alpha_numeric_qr_code) => {
-                            test_println!("version: {}", alpha_numeric_qr_code.version);
                             match alpha_numeric_qr_code.error_correction_level {
                                 ErrorCorrectionLevel::L => L_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
                                 ErrorCorrectionLevel::M => M_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
@@ -418,8 +424,6 @@ impl QRMode {
                     }
                 };
                 
-                test_println!("num_e_codewords: {}", num_error_codewords);
-
                 for i in 1..num_error_codewords {
                     poly = poly.multiply_as_exponents(&GeneratorPolynomial::from(vec![0, i as i32]));
                 }
@@ -428,24 +432,40 @@ impl QRMode {
                 poly
             };
             
-            test_println!("gen_size: {}", generator_polynomial.get().len());
-            
+            // FIXME: This algorithm works but it is messy and there is a lot of unneccessary
+            // notation switching so fix this
+
             // Perform the long division on the message polynomial with the generator polynomial
             let size = message_polynomial.get().len();
-            test_println!("poly_size: {}", size);
-            let mut current_xor = message_polynomial.to_exponent_notation();
+            let mut current_xor = message_polynomial;
 
             for _ in 0..size {
                 // Multiply the generator polynomial by the leading term of the message polynomial
-                let mut inter_poly = generator_polynomial.multiply_by_exponent(current_xor.get()[0]);
-                inter_poly = current_xor.to_integer_notation().xor_with_other(&inter_poly.to_integer_notation());
+                let mut inter_poly = generator_polynomial.multiply_by_exponent(current_xor.to_exponent_notation().get()[0]);
+                inter_poly = current_xor.xor_with_other(&inter_poly.to_integer_notation());
                 inter_poly = inter_poly.drop_leading_zeros();
-                current_xor = inter_poly.to_exponent_notation();
+                current_xor = inter_poly;
             }
+            // let mut current_xor = message_polynomial.to_exponent_notation();
+
+            // for _ in 0..size {
+            //     // Multiply the generator polynomial by the leading term of the message polynomial
+            //     let mut inter_poly = generator_polynomial.multiply_by_exponent(current_xor.get()[0]);
+            //     inter_poly = current_xor.to_integer_notation().xor_with_other(&inter_poly.to_integer_notation());
+            //     inter_poly = inter_poly.drop_leading_zeros();
+            //     current_xor = inter_poly.to_exponent_notation();
+            //     {
+            //         test_print!("Ionv: ");
+            //         for e in current_xor.to_integer_notation().get() {
+            //             test_print!("{:03} ", e);
+            //         }
+            //         test_println!();
+            //     }
+            // }
 
             // Current xor is the error correction codewords to use in exponent notation
-            let error_correction_nums = current_xor.to_integer_notation();
-            test_println!("e_len_pre: {}", error_correction_nums.get().len());
+            // let error_correction_nums = current_xor.to_integer_notation();
+            let error_correction_nums = current_xor;
 
             // WARNING: if this doesn't give the correct result
             // then try changing the logic in push_byte to push it
@@ -477,7 +497,6 @@ impl QRMode {
                 e_len += e.len();
             }
 
-            test_println!("d_len: {}, e_len: {}", d_len, e_len);
         }
 
         (data, error_correction_data)
@@ -495,7 +514,6 @@ impl QRMode {
             max
         };
 
-        test_println!("max_index_d: {}", max_index);
         // Interleave the data codewords
         for i in 0..max_index {
             for value in data.0.iter() {
@@ -504,6 +522,7 @@ impl QRMode {
                 }
             }
         }
+
 
         let max_index = {
             let mut max = data.1[0].len();
@@ -514,11 +533,16 @@ impl QRMode {
 
             max
         };        
-        test_println!("max_index_e: {}", max_index);
+
         // Interleave the error codewords
         for i in 0..max_index {
+            // test_println!("data: {:2X}", data.1[0][i]);
+            // test_println!("data: {:2X}", data.1[1][i]);
+            // test_println!("data: {:2X}", data.1[2][i]);
+            // test_println!("data: {:2X}", data.1[3][i]);
             for value in data.1.iter() {
                 if value.len() > i {
+                    // test_println!("value: {:X}", value[i]);
                     new_data.push(value[i]);
                 }
             }
@@ -542,7 +566,7 @@ impl QRMode {
             new_bitstring.push_bit(0);
         }
 
-        test_println!("len: {}", new_bitstring);
+        test_println!("{}", new_bitstring.as_hex());
         new_bitstring
     }
 
@@ -567,6 +591,9 @@ impl QRMode {
         create_timing_patterns(&mut bit_map, &mut reservations);
         create_dark_module(&mut bit_map, &mut reservations);
         reserve_format_information_areas(&mut reservations);
+
+        test_println!("{}", reservations);
+
         place_data_bits(&mut bit_map, &reservations, &bits);
         mask_data(&mut bit_map, &reservations);
         add_format_information(&mut bit_map, {
@@ -584,63 +611,91 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
     // HACK: temparory mask variable while still testing with only mask 0
     let mask = 0;
     
+    // Put the bits into the bitmap
+    let mut index = 0;
+
+
+    if *version >= 7 {
+        // Get the format information bits and error correction for those bits
+        let bits: u32 = {
+            let data = *version as u32 + 1;
+            // Generator polynomial: x^12 + x^11 + x^10 + x^9 + x^8 + x^5 + x^2 + 1
+            let generator_polynomial = 0x1F25;
+
+            let mut rem: u32 = data;
+            // This is the same as doing a division by the generator polynomial until the remainder is
+            // less than 4096
+            for _ in 0..12 {
+                rem = (rem << 1) ^ ((rem >> 11) * generator_polynomial);
+            }
+
+            (data << 12) | rem
+        };
+
+        test_println!("bits: {:018b}", bits);
+
+        for j in 0..6 {
+            for i in 0..3 {
+                bit_map.set(bit_map.size() - 11 + i, j, bits & (1 << index));
+                bit_map.set(j, bit_map.size() - 11 + i, bits & (1 << index));
+
+
+                index += 1;
+            }
+        }
+    }
+    
+
+    index = 0;
     // Get the format information bits and error correction for those bits
     let bits: u32 = {
         let data = error_correction_level.get_format_bits() << 3 | mask;
-        
+
         // Generator polynomial: x^10 + x^8 + x^5 + x^4 + x^2 + x + 1
         let generator_polynomial = 0x537;
 
         let mut rem: u32 = data;
         // This is the same as doing a division by the generator polynomial until the remainder is
         // less than 1024
-        for _i in 0..10 {
+        for _ in 0..10 {
             rem = (rem << 1) ^ ((rem >> 9) * generator_polynomial);
         }
 
-        test_println!("data + rem: {:b}", (data << 10) | rem);
-
-        ((data << 10) | rem) ^ error_correction_level.get_format_mask_bits()
+        // ((data << 10) | rem) ^ error_correction_level.get_format_mask_bits()
+        ((data << 10) | rem) ^ 0x5412
     };
-    test_println!("data + rem masked: {:b}", bits);
+    test_println!("other bits: {:b}", bits);
 
-    // Put the bits into the bitmap
-    let mut index = 0;
+    for i in 0..=5 {
+        // Come up with a better solution than this
+        let bit = bits & (0x4000 >> index);
+        bit_map.set(8, i, bit);
+        bit_map.set(bit_map.size() - 1 - i, 8, bit);
+        index += 1;
+    }
 
-    if *version < 7 {
-        for i in 0..=5 {
-            // Come up with a better solution than this
-            let bit = bits & (0x4000 >> index);
-            bit_map.set(8, i, bit);
-            bit_map.set(bit_map.size() - 1 - i, 8, bit);
-            index += 1;
-        }
+    // Add bits 6, 7, and 8
+    let (bit_6, bit_7, bit_8) = (
+        bits & (0x4000 >> index),
+        bits & (0x4000 >> (index + 1)),
+        bits & (0x4000 >> (index + 2))
+    );
+    index += 3;
 
-        // Add bits 6, 7, and 8
-        let (bit_6, bit_7, bit_8) = (
-            bits & (0x4000 >> index),
-            bits & (0x4000 >> (index + 1)),
-            bits & (0x4000 >> (index + 2))
-        );
-        index += 3;
+    bit_map.set(bit_map.size() - 6, 8, bit_6);
+    bit_map.set(8, 7, bit_6);
 
-        bit_map.set(bit_map.size() - 6, 8, bit_6);
-        bit_map.set(8, 7, bit_6);
+    bit_map.set(8, 8, bit_7);
+    bit_map.set(8, bit_map.size() - 7, bit_7);
 
-        bit_map.set(8, 8, bit_7);
-        bit_map.set(8, bit_map.size() - 7, bit_7);
+    bit_map.set(7, 8, bit_8);
+    bit_map.set(8, bit_map.size() - 6, bit_8);
 
-        bit_map.set(7, 8, bit_8);
-        bit_map.set(8, bit_map.size() - 6, bit_8);
-
-        for i in 9..=14 {
-            let bit = bits & (0x4000 >> index);
-            index += 1;
-            bit_map.set(14 - i, 8, bit);
-            bit_map.set(8, bit_map.size() - (15 - i), bit);
-        }
-    } else {
-        todo!();
+    for i in 9..=14 {
+        let bit = bits & (0x4000 >> index);
+        index += 1;
+        bit_map.set(14 - i, 8, bit);
+        bit_map.set(8, bit_map.size() - (15 - i), bit);
     }
 }
 
@@ -659,8 +714,6 @@ fn mask_data(bit_map: &mut BitMap, reservations: &BitMap) {
 
 
 fn place_data_bits(bit_map: &mut BitMap, reservations: &BitMap, bits: &BitString) {
-    test_println!("size: {}", bits.len());
-
     // Place bits up in a zig zag pattern
     fn place_bits_up(
         bit_map: &mut BitMap, 
@@ -702,10 +755,12 @@ fn place_data_bits(bit_map: &mut BitMap, reservations: &BitMap, bits: &BitString
         x_pos: usize
     ) {
         let mut y_pos = 0;
-
         while y_pos < bit_map.size() {
             if reservations.get(y_pos, x_pos) == Bit::Zero {
-                bit_map.set(y_pos, x_pos, bits.get_bit(*index).unwrap());
+                bit_map.set(y_pos, x_pos, bits.get_bit(*index).unwrap_or_else(|_| {
+                    test_println!("{}", bit_map);
+                    panic!()
+                }));
                 // bit_map.set(y_pos, x_pos, 1);
                 *index += 1;
             }
@@ -756,8 +811,6 @@ fn place_data_bits(bit_map: &mut BitMap, reservations: &BitMap, bits: &BitString
         }
         x_pos -= 2;
     }
-    
-    test_println!("Actual: {}", index);
 }
 
 fn reserve_format_information_areas(reservations: &mut BitMap) {
@@ -775,13 +828,13 @@ fn reserve_format_information_areas(reservations: &mut BitMap) {
             reservations.set(size - 10, i, 1);
             reservations.set(size - 9, i, 1);
         }
-    } else {
-        for i in 0..=8 {
-            reservations.set(i, 8, 1);
-            reservations.set(8, i, 1);
-            reservations.set(size - i, 8, 1);
-            reservations.set(8, size - i, 1);
-        }
+    } 
+
+    for i in 0..=8 {
+        reservations.set(i, 8, 1);
+        reservations.set(8, i, 1);
+        reservations.set(size - i, 8, 1);
+        reservations.set(8, size - i, 1);
     }
 }
 
@@ -807,8 +860,6 @@ fn create_timing_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
 fn get_alignment_pattern_coordinates_list(bit_map_size: usize) -> Vec<usize> {
     let version = ((bit_map_size - 21) / 4) + 1;
     
-    test_println!("{} {}", version, bit_map_size);
-
     let intervals = (version / 7) + 1;
     let distance = 4 * version + 4;
     let mut step = ((distance as f64) / (intervals as f64)).round() as usize;
@@ -846,8 +897,6 @@ fn create_alignment_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
     
     let coords = get_alignment_pattern_coordinates_list(bit_map.size());
     
-    test_println!("{:?}", coords);
-        
     for x in 0..coords.len() {
         for y in 0..coords.len() {
             if (x == 0 && y == 0)
