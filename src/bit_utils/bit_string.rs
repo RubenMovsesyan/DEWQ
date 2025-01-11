@@ -27,14 +27,14 @@ pub struct BitString {
 
 
 impl BitString {
-    pub fn new() -> BitString {
+    pub fn new() -> Self {
         Self {
             bits: Vec::new(),
             bits_len: 0,
         }
     }
 
-    pub fn from_string<'a, S>(string: S) -> BitString
+    pub fn from_string<'a, S>(string: S) -> Self
         where S: Into<&'a str>
     {
         let mut output = BitString::new();
@@ -49,6 +49,13 @@ impl BitString {
         }
 
         output
+    }
+
+    pub fn from_vec(vector: Vec<u8>) -> Self {
+        Self {
+            bits_len: vector.len() * 8,
+            bits: vector,
+        }
     }
 
     pub fn push_bit<B>(&mut self, bit: B)
@@ -69,6 +76,16 @@ impl BitString {
             }
         }
         self.bits_len += 1;
+    }
+
+    pub fn push_bit_times<B, USIZE>(&mut self, bit: B, times: USIZE)
+        where B: Into<Bit>,
+              USIZE: Into<usize>,
+    {
+        let b = bit.into();
+        for _ in 0..times.into() {
+            self.push_bit(b.clone());
+        }
     }
 
     pub fn push_byte<U8>(&mut self, byte: U8) 

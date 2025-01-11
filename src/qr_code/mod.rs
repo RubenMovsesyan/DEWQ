@@ -437,52 +437,42 @@ impl QRMode {
         }
 
         for message_polynomial in message_polynomials {
+            // Create a generator polynomial based on the number of blocks needed
             let mut generator_polynomial = {
                 let mut poly = Polynomial::from_exponent_notation(vec![0, 0]);
                 
-                let num_error_codewords = 
-                    self
-                    .error_correction_level()
-                    .get_num_error_correction_codewords(self.version());
-                
-                for i in 1..num_error_codewords {
+                for i in 1..self.error_correction_level().get_num_error_correction_codewords(self.version()) {
                     poly = poly.multiply(&mut Polynomial::from_exponent_notation(vec![0, i as i32]));
                 }
 
                 poly
             };
 
-            
-            // FIXME: This algorithm works but it is messy and there is a lot of unneccessary
-            // notation switching so fix this
 
             // Perform the long division on the message polynomial with the generator polynomial
-            let size = message_polynomial.len();
-            let mut current_message = message_polynomial;
-
-            for _ in 0..size {
-                let mut inter_poly =
-                    generator_polynomial.multiply_by_exponent(
-                        current_message.get_as_exponent_vec()[0]
-                    );
-
+            let mut current_message = message_polynomial.clone();
+            let mut inter_poly;
+            for _ in 0..message_polynomial.len() {
+                // Multiply the generator by the first coefficient of the message polynomial
+                inter_poly = generator_polynomial.multiply_by_exponent(current_message.get_as_exponent_vec()[0]);
+                // xor the resulting multiplaction with the current message polynomial
                 inter_poly = inter_poly.xor(&mut current_message);
+                // Drop the leading zeros of the resulting xor operation
                 inter_poly.drop_leading_zeros();
+                // Set the new current message to the resulting computation
                 current_message = inter_poly;
             }
-            let mut error_correction_nums = current_message;
 
-            let u8_error_correction_nums = {
+            // Push the data to the error correction data as u8
+            error_correction_data.push({
                 let mut output: Vec<u8> = Vec::new();
 
-                for elem in error_correction_nums.get_as_integer_vec() {
+                for elem in current_message.get_as_integer_vec() {
                     output.push(*elem as u8);
                 }
 
                 output
-            };
-
-            error_correction_data.push(u8_error_correction_nums);
+            });
         }
 
         (data, error_correction_data)
@@ -490,56 +480,33 @@ impl QRMode {
 
     pub fn structure_codewords(&self, data: (Vec<Vec<u8>>, Vec<Vec<u8>>)) -> BitString {
         let mut new_data: Vec<u8> = Vec::new();
-        let max_index = {
-            let mut max = data.0[0].len();
 
-            for val in data.0.iter() {
-                max = max.max(val.len());
-            }
-
-            max
-        };
+        let max_index = data.0.iter().max_by_key(|block| block.len()).unwrap().len();
 
         // Interleave the data codewords
         for i in 0..max_index {
-            for value in data.0.iter() {
-                if value.len() > i {
-                    new_data.push(value[i]);
+            for block in data.0.iter() {
+                if let Some(value) = block.get(i) {
+                    new_data.push(*value);
                 }
             }
         }
 
-
-        let max_index = {
-            let mut max = data.1[0].len();
-
-            for val in data.1.iter() {
-                max = max.max(val.len());
-            }
-
-            max
-        };        
+        let max_index = data.1.iter().max_by_key(|block| block.len()).unwrap().len();
 
         // Interleave the error codewords
         for i in 0..max_index {
-            for value in data.1.iter() {
-                if value.len() > i {
-                    new_data.push(value[i]);
+            for block in data.1.iter() {
+                if let Some(value) = block.get(i) {
+                    new_data.push(*value);
                 }
             }
         }
         
-        // Turn into a final bitstring
-        let mut new_bitstring = BitString::new();
-        for byte in new_data {
-            new_bitstring.push_byte(byte);
-        }
-        
-        for _ in 0..REQUIRED_REMAINDER_BITS[self.version()] {
-            new_bitstring.push_bit(0);
-        }
+        // Create a new bitstring from the data and push the required remainder bits to it
+        let mut new_bitstring = BitString::from_vec(new_data);
+        new_bitstring.push_bit_times(0, REQUIRED_REMAINDER_BITS[self.version()]);
 
-        test_println!("{}", new_bitstring.as_hex());
         new_bitstring
     }
 
