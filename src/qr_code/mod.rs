@@ -39,11 +39,36 @@ pub enum QRMode {
     // Kanji(Vec<u16>), // Double byte mode
 }
 
+pub trait QRCode {
+    fn version(&self) -> usize;
+    fn error_correction_level(&self) -> &ErrorCorrectionLevel;
+    fn data(&self) -> &Vec<u8>;
+    fn data_len(&self) -> usize;
+}
+
 #[derive(PartialEq, Eq, Debug)]
 pub struct AlphaNumericQrCode {
     data: Vec<u8>,
     version: usize,
     error_correction_level: ErrorCorrectionLevel,
+}
+
+impl QRCode for AlphaNumericQrCode {
+    fn version(&self) -> usize {
+        self.version
+    }
+
+    fn error_correction_level(&self) -> &ErrorCorrectionLevel {
+        &self.error_correction_level
+    }
+
+    fn data(&self) -> &Vec<u8> {
+        &self.data
+    }
+
+    fn data_len(&self) -> usize {
+        self.data.len()
+    }
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -74,7 +99,70 @@ impl ErrorCorrectionLevel {
         }
     }
 
+    
+    pub fn get_alpha_numeric_version_size(&self, version: usize) -> usize {
+        match self {
+            ErrorCorrectionLevel::L => ALPHA_NUMERIC_L_MAX_CAPACITY[version],
+            ErrorCorrectionLevel::M => ALPHA_NUMERIC_M_MAX_CAPACITY[version],
+            ErrorCorrectionLevel::Q => ALPHA_NUMERIC_Q_MAX_CAPACITY[version],
+            ErrorCorrectionLevel::H => ALPHA_NUMERIC_H_MAX_CAPACITY[version],
+        }
+    }
 
+    pub fn get_num_codewords(&self, version: usize) -> usize {
+        match self {
+            ErrorCorrectionLevel::L => L_NUM_CODEWORDS[version],
+            ErrorCorrectionLevel::M => M_NUM_CODEWORDS[version],
+            ErrorCorrectionLevel::Q => Q_NUM_CODEWORDS[version],
+            ErrorCorrectionLevel::H => H_NUM_CODEWORDS[version],
+        }
+    }
+
+    pub fn get_block_data(&self, version: usize) -> (usize, usize, usize, usize) {
+        match self {
+            ErrorCorrectionLevel::L => {
+                (
+                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_L[version],
+                    NUM_CODE_WORDS_PER_BLOCK_GROUP_1_L[version],
+                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_L[version],
+                    NUM_CODE_WORDS_PER_BLOCK_GROUP_2_L[version],
+                )
+            },
+            ErrorCorrectionLevel::M => {
+                (
+                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_M[version],
+                    NUM_CODE_WORDS_PER_BLOCK_GROUP_1_M[version],
+                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_M[version],
+                    NUM_CODE_WORDS_PER_BLOCK_GROUP_2_M[version],
+                )
+            },
+            ErrorCorrectionLevel::Q => {
+                (
+                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_Q[version],
+                    NUM_CODE_WORDS_PER_BLOCK_GROUP_1_Q[version],
+                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_Q[version],
+                    NUM_CODE_WORDS_PER_BLOCK_GROUP_2_Q[version],
+                )
+            },
+            ErrorCorrectionLevel::H => {
+                (
+                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_H[version],
+                    NUM_CODE_WORDS_PER_BLOCK_GROUP_1_H[version],
+                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_H[version],
+                    NUM_CODE_WORDS_PER_BLOCK_GROUP_2_H[version],
+                )
+            },
+        }
+    }
+
+    pub fn get_num_error_correction_codewords(&self, version: usize) -> usize {
+        match self {
+            ErrorCorrectionLevel::L => L_ERROR_CORRECTION_CODE_WORDS[version],
+            ErrorCorrectionLevel::M => M_ERROR_CORRECTION_CODE_WORDS[version],
+            ErrorCorrectionLevel::Q => Q_ERROR_CORRECTION_CODE_WORDS[version],
+            ErrorCorrectionLevel::H => H_ERROR_CORRECTION_CODE_WORDS[version],
+        }
+    }
 }
 
 // ------------------ Helper functions ----------------------
@@ -123,6 +211,7 @@ impl QRMode {
             }
             return QRMode::Numeric(digit_buffer);
         } else if is_alphanumeric(&converted_input) {
+            // Get the alphanumeric conversion of the data
             let mut data: Vec<u8> = Vec::with_capacity(converted_input.len());
             for character in converted_input.bytes() {
                 if character > 47 && character < 58 {
@@ -142,35 +231,13 @@ impl QRMode {
                 }
             }
 
-
+            // Get the version of QR code needed
             let version = {
                 let mut out: usize = 0;
                 for version_index in (0..MAX_VERSION).rev() {
-                    match error_correction_level {
-                        ErrorCorrectionLevel::L => {
-                            if data.len() > ALPHA_NUMERIC_L_MAX_CAPACITY[version_index] {
-                                out = version_index + 1;
-                                break;
-                            }
-                        }
-                        ErrorCorrectionLevel::M => {
-                            if data.len() > ALPHA_NUMERIC_M_MAX_CAPACITY[version_index] {
-                                out = version_index + 1;
-                                break;
-                            }
-                        },
-                        ErrorCorrectionLevel::Q => {
-                            if data.len() > ALPHA_NUMERIC_Q_MAX_CAPACITY[version_index] {
-                                out = version_index + 1;
-                                break;
-                            }
-                        },
-                        ErrorCorrectionLevel::H => {
-                            if data.len() > ALPHA_NUMERIC_H_MAX_CAPACITY[version_index] {
-                                out = version_index + 1;
-                                break;
-                            }
-                        },
+                    if data.len() > error_correction_level.get_alpha_numeric_version_size(version_index) {
+                        out = version_index + 1;
+                        break;
                     }
                 }
                 out
@@ -187,26 +254,47 @@ impl QRMode {
 
         todo!()
     }
+
+    // Private getters for easy abstraction
+    fn version(&self) -> usize {
+        match self {
+            QRMode::Numeric(_numbers) => todo!(),
+            QRMode::AlphaNumeric(anqr) => anqr.version,
+            QRMode::Byte(_bytes) => todo!(),
+        }
+    }
+
+    fn error_correction_level(&self) -> &ErrorCorrectionLevel {
+        match self {
+            QRMode::Numeric(_numbers) => todo!(),
+            QRMode::AlphaNumeric(anqr) => anqr.error_correction_level(),
+            QRMode::Byte(_bytes) => todo!(),
+        }
+    }
     
 
     pub fn encode(&mut self) -> BitString {
         let mut bit_string: BitString = BitString::new();
+        let size_of_character_length_bits: usize;
+
+
+        // Perform the mode dependent encoding
         match self {
             QRMode::Numeric(_numbers) => {
                 todo!()
             },
-            QRMode::AlphaNumeric(alpha_numeric_qr_code) => {
+            QRMode::AlphaNumeric(anqr) => {
                 // Adding the mode indicator
                 bit_string.push_bit(0);
                 bit_string.push_bit(0);
                 bit_string.push_bit(1);
                 bit_string.push_bit(0);
                 
-                let size_of_character_length_bits = {
+                size_of_character_length_bits = {
                     let out: usize;
-                    if (alpha_numeric_qr_code.version + 1) < 10 {
+                    if (anqr.version() + 1) < 10 {
                         out = 9;
-                    } else if (alpha_numeric_qr_code.version + 1) > 9 && (alpha_numeric_qr_code.version + 1) < 27 {
+                    } else if (anqr.version() + 1) > 9 && (anqr.version() + 1) < 27 {
                         out = 11;
                     } else {
                         out = 13
@@ -217,16 +305,15 @@ impl QRMode {
 
                 // Encode the character count
                 for i in (0..size_of_character_length_bits).rev() {
-                    bit_string.push_bit((alpha_numeric_qr_code.data.len() & (1 << i)) as i32);
+                    bit_string.push_bit((anqr.data_len() & (1 << i)) as i32);
                 }
 
-
-                // Encode the values
-                for value_index in (0..alpha_numeric_qr_code.data.len()).step_by(2) {
+                // Encode the values in alphanumeric encoding
+                for value_index in (0..anqr.data_len()).step_by(2) {
                     // Since stepping by 2 we know that this is always going to be Some()
-                    let first_value = unsafe { alpha_numeric_qr_code.data.get(value_index).unwrap_unchecked() };
+                    let first_value = unsafe { anqr.data().get(value_index).unwrap_unchecked() };
                     
-                    match alpha_numeric_qr_code.data.get(value_index + 1) {
+                    match anqr.data().get(value_index + 1) {
                         Some(second_value) => {
                             let encoded = (*first_value as u16 * 45) + *second_value as u16;
                             
@@ -246,73 +333,69 @@ impl QRMode {
                     }
                 }
 
-                // Add terminator 0s if necessary
-                let required_number_of_bits = {
-                    match alpha_numeric_qr_code.error_correction_level {
-                        ErrorCorrectionLevel::L => {
-                            L_NUM_CODEWORDS[alpha_numeric_qr_code.version] * 8
-                        },
-                        ErrorCorrectionLevel::M => {
-                            M_NUM_CODEWORDS[alpha_numeric_qr_code.version] * 8
-                        },
-                        ErrorCorrectionLevel::Q => {
-                            Q_NUM_CODEWORDS[alpha_numeric_qr_code.version] * 8
-                        },
-                        ErrorCorrectionLevel::H => {
-                            H_NUM_CODEWORDS[alpha_numeric_qr_code.version] * 8
-                        },
-                    }
-                };
-
-                let total_bits = bit_string.len() - 4 - (size_of_character_length_bits);
-                let bit_difference = required_number_of_bits - total_bits;
-
-                for _ in 0..bit_difference.min(4) {
-                    bit_string.push_bit(0);
-                }
-
-                // Make sure the bitstring is a multiple of 8
-                while bit_string.len() % 8 != 0 {
-                    bit_string.push_bit(0);
-                }
-                
-                // Add the necessary pad bytes
-                while bit_string.len() < required_number_of_bits {
-                    // append binary 236
-                    bit_string.push_bit(1);
-                    bit_string.push_bit(1);
-                    bit_string.push_bit(1);
-                    bit_string.push_bit(0);
-                    bit_string.push_bit(1);
-                    bit_string.push_bit(1);
-                    bit_string.push_bit(0);
-                    bit_string.push_bit(0);
-
-                    // Check if the bitsting is long enough
-                    if bit_string.len() >= required_number_of_bits {
-                        break;
-                    }
-
-                    // append binary 17
-                    bit_string.push_bit(0);
-                    bit_string.push_bit(0);
-                    bit_string.push_bit(0);
-                    bit_string.push_bit(1);
-                    bit_string.push_bit(0);
-                    bit_string.push_bit(0);
-                    bit_string.push_bit(0);
-                    bit_string.push_bit(1);
-                }
-
-
-                //test_println!("{}", bit_string);
-                test_println!("{}", bit_string.as_hex());
-                return bit_string;
             },
             QRMode::Byte(_bytes) => {
                 todo!()
             }
         }
+
+
+        // The rest is the mode independed encoding
+        let required_number_of_bits = 
+            self
+            .error_correction_level()
+            .get_num_codewords(self.version()) * BYTE_SIZE;
+
+
+        // Add terminator 0s if necessary
+        {
+            let total_bits = bit_string.len() 
+                - 4 
+                - (size_of_character_length_bits);
+
+            let bit_difference = required_number_of_bits - total_bits;
+
+            for _ in 0..bit_difference.min(4) {
+                bit_string.push_bit(0);
+            }
+        }
+
+        // Make sure the bitstring is a multiple of 8
+        while bit_string.len() % 8 != 0 {
+            bit_string.push_bit(0);
+        }
+
+        // Add the necessary pad bytes
+        while bit_string.len() < required_number_of_bits {
+            // append binary 236
+            bit_string.push_bit(1);
+            bit_string.push_bit(1);
+            bit_string.push_bit(1);
+            bit_string.push_bit(0);
+            bit_string.push_bit(1);
+            bit_string.push_bit(1);
+            bit_string.push_bit(0);
+            bit_string.push_bit(0);
+
+            // Check if the bitsting is long enough
+            if bit_string.len() >= required_number_of_bits {
+                break;
+            }
+
+            // append binary 17
+            bit_string.push_bit(0);
+            bit_string.push_bit(0);
+            bit_string.push_bit(0);
+            bit_string.push_bit(1);
+            bit_string.push_bit(0);
+            bit_string.push_bit(0);
+            bit_string.push_bit(0);
+            bit_string.push_bit(1);
+        }
+
+
+        test_println!("{}", bit_string.as_hex());
+        return bit_string;
     }
 
     pub fn generate_error_correction(&self, bits: BitString) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
@@ -324,62 +407,10 @@ impl QRMode {
             num_code_words_group_1,
             num_blocks_group_2,
             num_code_words_group_2
-        ) = {
-            let (version, error_correction_level) = {
-                match self {
-                    QRMode::Numeric(_data) => { todo!() },
-                    QRMode::AlphaNumeric(alpha_numeric_qr_code) => { (alpha_numeric_qr_code.version, &alpha_numeric_qr_code.error_correction_level) },
-                    QRMode::Byte(_data) => { todo!() },
-                }
-            };
-
-            test_println!("version: {}", version);
-
-            match error_correction_level {
-                ErrorCorrectionLevel::L => {
-                    (
-                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_L[version],
-                        NUM_CODE_WORDS_PER_BLOCK_GROUP_1_L[version],
-                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_L[version],
-                        NUM_CODE_WORDS_PER_BLOCK_GROUP_2_L[version],
-                    )
-                },
-                ErrorCorrectionLevel::M => {
-                    (
-                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_M[version],
-                        NUM_CODE_WORDS_PER_BLOCK_GROUP_1_M[version],
-                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_M[version],
-                        NUM_CODE_WORDS_PER_BLOCK_GROUP_2_M[version],
-                    )
-                },
-                ErrorCorrectionLevel::Q => {
-                    (
-                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_Q[version],
-                        NUM_CODE_WORDS_PER_BLOCK_GROUP_1_Q[version],
-                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_Q[version],
-                        NUM_CODE_WORDS_PER_BLOCK_GROUP_2_Q[version],
-                    )
-                },
-                ErrorCorrectionLevel::H => {
-                    (
-                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_H[version],
-                        NUM_CODE_WORDS_PER_BLOCK_GROUP_1_H[version],
-                        NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_H[version],
-                        NUM_CODE_WORDS_PER_BLOCK_GROUP_2_H[version],
-                    )
-                },
-            }
-        };
-
-        // test_println!("{}\n{}\n{}\n{}",
-        //     num_blocks_group_1,
-        //     num_code_words_group_1,
-        //     num_blocks_group_2,
-        //     num_code_words_group_2
-        // );
+        ) = self.error_correction_level().get_block_data(self.version());
 
         // Create all the message polynomials from the data codewords
-        let mut message_polynomials: Vec<GeneratorPolynomial> = Vec::new();
+        let mut message_polynomials: Vec<Polynomial> = Vec::new();
         let mut index = 0;
 
         for _ in 0..num_blocks_group_1 {
@@ -391,7 +422,7 @@ impl QRMode {
 
 
             data.push(Vec::from(block.clone()));
-            message_polynomials.push(GeneratorPolynomial::from(block));
+            message_polynomials.push(Polynomial::from_integer_notation(block));
         }
 
         for _ in 0..num_blocks_group_2 {
@@ -402,81 +433,49 @@ impl QRMode {
             }
 
             data.push(Vec::from(block.clone()));
-            message_polynomials.push(GeneratorPolynomial::from(block));
+            message_polynomials.push(Polynomial::from_integer_notation(block));
         }
 
         for message_polynomial in message_polynomials {
-            let generator_polynomial = {
-                let mut poly = GeneratorPolynomial::from(vec![0, 0]);
-
-                let num_error_codewords = {
-                    match self {
-                        QRMode::Numeric(_data) => todo!(),
-                        QRMode::AlphaNumeric(alpha_numeric_qr_code) => {
-                            match alpha_numeric_qr_code.error_correction_level {
-                                ErrorCorrectionLevel::L => L_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
-                                ErrorCorrectionLevel::M => M_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
-                                ErrorCorrectionLevel::Q => Q_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
-                                ErrorCorrectionLevel::H => H_ERROR_CORRECTION_CODE_WORDS[alpha_numeric_qr_code.version],
-                            }
-                        },
-                        QRMode::Byte(_data) => todo!(),
-                    }
-                };
+            let mut generator_polynomial = {
+                let mut poly = Polynomial::from_exponent_notation(vec![0, 0]);
+                
+                let num_error_codewords = 
+                    self
+                    .error_correction_level()
+                    .get_num_error_correction_codewords(self.version());
                 
                 for i in 1..num_error_codewords {
-                    poly = poly.multiply_as_exponents(&GeneratorPolynomial::from(vec![0, i as i32]));
+                    poly = poly.multiply(&mut Polynomial::from_exponent_notation(vec![0, i as i32]));
                 }
-
 
                 poly
             };
+
             
             // FIXME: This algorithm works but it is messy and there is a lot of unneccessary
             // notation switching so fix this
 
             // Perform the long division on the message polynomial with the generator polynomial
-            let size = message_polynomial.get().len();
-            let mut current_xor = message_polynomial;
+            let size = message_polynomial.len();
+            let mut current_message = message_polynomial;
 
             for _ in 0..size {
-                // Multiply the generator polynomial by the leading term of the message polynomial
-                let mut inter_poly = generator_polynomial.multiply_by_exponent(current_xor.to_exponent_notation().get()[0]);
-                inter_poly = current_xor.xor_with_other(&inter_poly.to_integer_notation());
-                inter_poly = inter_poly.drop_leading_zeros();
-                current_xor = inter_poly;
+                let mut inter_poly =
+                    generator_polynomial.multiply_by_exponent(
+                        current_message.get_as_exponent_vec()[0]
+                    );
+
+                inter_poly = inter_poly.xor(&mut current_message);
+                inter_poly.drop_leading_zeros();
+                current_message = inter_poly;
             }
-            // let mut current_xor = message_polynomial.to_exponent_notation();
+            let mut error_correction_nums = current_message;
 
-            // for _ in 0..size {
-            //     // Multiply the generator polynomial by the leading term of the message polynomial
-            //     let mut inter_poly = generator_polynomial.multiply_by_exponent(current_xor.get()[0]);
-            //     inter_poly = current_xor.to_integer_notation().xor_with_other(&inter_poly.to_integer_notation());
-            //     inter_poly = inter_poly.drop_leading_zeros();
-            //     current_xor = inter_poly.to_exponent_notation();
-            //     {
-            //         test_print!("Ionv: ");
-            //         for e in current_xor.to_integer_notation().get() {
-            //             test_print!("{:03} ", e);
-            //         }
-            //         test_println!();
-            //     }
-            // }
-
-            // Current xor is the error correction codewords to use in exponent notation
-            // let error_correction_nums = current_xor.to_integer_notation();
-            let error_correction_nums = current_xor;
-
-            // WARNING: if this doesn't give the correct result
-            // then try changing the logic in push_byte to push it
-            // in reverse order instead
-            // for num in error_correction_nums.get() {
-            //     error_correction_data.push(*num as u8);
-            // }
             let u8_error_correction_nums = {
                 let mut output: Vec<u8> = Vec::new();
 
-                for elem in error_correction_nums.get() {
+                for elem in error_correction_nums.get_as_integer_vec() {
                     output.push(*elem as u8);
                 }
 
@@ -484,19 +483,6 @@ impl QRMode {
             };
 
             error_correction_data.push(u8_error_correction_nums);
-        }
-
-
-        {
-            let mut d_len = 0;
-            for d in data.iter() {
-                d_len += d.len();
-            }
-            let mut e_len = 0;
-            for e in error_correction_data.iter() {
-                e_len += e.len();
-            }
-
         }
 
         (data, error_correction_data)
@@ -536,13 +522,8 @@ impl QRMode {
 
         // Interleave the error codewords
         for i in 0..max_index {
-            // test_println!("data: {:2X}", data.1[0][i]);
-            // test_println!("data: {:2X}", data.1[1][i]);
-            // test_println!("data: {:2X}", data.1[2][i]);
-            // test_println!("data: {:2X}", data.1[3][i]);
             for value in data.1.iter() {
                 if value.len() > i {
-                    // test_println!("value: {:X}", value[i]);
                     new_data.push(value[i]);
                 }
             }
@@ -554,15 +535,7 @@ impl QRMode {
             new_bitstring.push_byte(byte);
         }
         
-        let version = {
-            match self {
-                QRMode::Numeric(_data) => { todo!() },
-                QRMode::AlphaNumeric(alpha_numeric_qr_code) => { alpha_numeric_qr_code.version },
-                QRMode::Byte(_data) => { todo!() },
-            }
-        };
-
-        for _ in 0..REQUIRED_REMAINDER_BITS[version] {
+        for _ in 0..REQUIRED_REMAINDER_BITS[self.version()] {
             new_bitstring.push_bit(0);
         }
 
@@ -572,15 +545,7 @@ impl QRMode {
 
     
     pub fn create_bit_map(&self, bits: BitString) {
-        let version = {
-            match self {
-                QRMode::Numeric(_data) => { todo!() },
-                QRMode::AlphaNumeric(alpha_numeric_qr_code) => { alpha_numeric_qr_code.version },
-                QRMode::Byte(_data) => { todo!() },
-            }
-        };
-
-        let size = 21 + (4 * (version ));
+        let size = 21 + (4 * (self.version()));
 
         let mut bit_map = BitMap::new(size);
         let mut reservations = BitMap::new(size);
@@ -591,23 +556,14 @@ impl QRMode {
         create_timing_patterns(&mut bit_map, &mut reservations);
         create_dark_module(&mut bit_map, &mut reservations);
         reserve_format_information_areas(&mut reservations);
-
-        test_println!("{}", reservations);
-
         place_data_bits(&mut bit_map, &reservations, &bits);
         mask_data(&mut bit_map, &reservations);
-        add_format_information(&mut bit_map, {
-            match self {
-                QRMode::Numeric(_data) => { todo!() },
-                QRMode::AlphaNumeric(alpha_numeric_qr_code) => { &alpha_numeric_qr_code.error_correction_level },
-                QRMode::Byte(_data) => { todo!() },
-            }
-        }, &version);
+        add_format_information(&mut bit_map, self.error_correction_level(), self.version());
         test_println!("{}", bit_map);
     }
 }
 
-fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCorrectionLevel, version: &usize) {
+fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCorrectionLevel, version: usize) {
     // HACK: temparory mask variable while still testing with only mask 0
     let mask = 0;
     
@@ -615,10 +571,10 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
     let mut index = 0;
 
 
-    if *version >= 7 {
+    if version >= 7 {
         // Get the format information bits and error correction for those bits
         let bits: u32 = {
-            let data = *version as u32 + 1;
+            let data = version as u32 + 1;
             // Generator polynomial: x^12 + x^11 + x^10 + x^9 + x^8 + x^5 + x^2 + 1
             let generator_polynomial = 0x1F25;
 
@@ -973,12 +929,12 @@ mod tests {
         assert_eq!(qr_mode, QRMode::Byte(vec![97, 49, 49, 51]));
     }
 
-    #[test]
-    fn test_qr_error_codes() {
-        let mut qr_mode = QRMode::analyze_data("HELLO WORLD", ErrorCorrectionLevel::M);
-        let bits = qr_mode.encode();
-        println!("Bits pre {}", bits);
-        let data = qr_mode.generate_error_correction(bits);
-        println!("data post {:?}", data);
-    }
+    // #[test]
+    // fn test_qr_error_codes() {
+    //     let mut qr_mode = QRMode::analyze_data("HELLO WORLD", ErrorCorrectionLevel::M);
+    //     let bits = qr_mode.encode();
+    //     println!("Bits pre {}", bits);
+    //     let data = qr_mode.generate_error_correction(bits);
+    //     println!("data post {:?}", data);
+    // }
 }

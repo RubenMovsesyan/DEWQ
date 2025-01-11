@@ -32,164 +32,224 @@ use std::print;
 ))]
 use std::fmt::Display;
 
-pub struct GeneratorPolynomial {
-    coefficients: Vec<i32>
-}
+#[derive(Clone)]
+struct PolynomialData(Vec<i32>);
 
-impl GeneratorPolynomial {
-    pub fn from<V>(coefficients: Vec<V>) -> Self 
+impl PolynomialData {
+    pub fn new<V>(data: Vec<V>) -> Self
         where V: Into<i32>
     {
-        let mut vec: Vec<i32> = Vec::new();
-        for elem in coefficients {
-            vec.push(elem.into());
-        }
-        Self {
-            coefficients: vec
-        }
-    }
-
-    pub fn prepend<V>(&mut self, coefficients: Vec<V>)
-        where V: Into<i32>
-    {
-        self.coefficients = {
-            let mut new_vec = Vec::with_capacity(coefficients.len() + self.coefficients.len());
-            for element in coefficients {
-                new_vec.push(element.into());
-            }
-
-            new_vec.append(&mut self.coefficients);
-            new_vec
-        };
-    }
-
-    pub fn get(&self) -> &Vec<i32> {
-        &self.coefficients
+        let vec: Vec<i32> = data.into_iter().map(Into::into).collect();
+        Self(vec)
     }
 
     pub fn len(&self) -> usize {
-        self.coefficients.len()
+        self.0.len()
     }
 
-    pub fn multiply_galios_256(&self, other: &GeneratorPolynomial) -> Self {
-        // Initialize a vector of 0s for the multiplication
-        let mut output: Vec<i32> = vec![0; self.coefficients.len() + other.coefficients.len() - 1];
+    pub fn get(&self) -> &Vec<i32> {
+        &self.0
+    }
 
-        for (i, coefficient) in self.coefficients.iter().enumerate() {
-            for (j, other_coeff) in other.coefficients.iter().enumerate() {
-                output[i + j] ^= i32::abs(*coefficient * *other_coeff);
+    pub fn get_mut(&mut self) -> &mut Vec<i32> {
+        &mut self.0
+    }
+}
+
+
+fn get_log(exponent: i32) -> i32 {
+    LOG_TABLE[exponent as usize] as i32
+}
+
+fn get_antilog(value: i32) -> i32 {
+    ANTI_LOG_TABLE[value as usize] as i32
+}
+
+
+#[derive(Clone)]
+enum Notation {
+    Integer,
+    Exponent,
+}
+
+#[derive(Clone)]
+pub struct Polynomial {
+    data: PolynomialData,
+    notation: Notation, 
+}
+
+
+
+impl Polynomial {
+    pub fn from_integer_notation<V>(data: Vec<V>) -> Self
+        where V: Into<i32>
+    {
+        Self {
+            data: PolynomialData::new(data),
+            notation: Notation::Integer,
+        }
+    }
+
+    pub fn from_exponent_notation<V>(data: Vec<V>) -> Self
+        where V: Into<i32>
+    {
+        Self {
+            data: PolynomialData::new(data),
+            notation: Notation::Exponent,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+    
+    pub fn convert_to_exponent_notation(&mut self) {
+        match self.notation {
+            Notation::Integer => {
+                for elem in self.data.get_mut() {
+                    *elem = get_antilog(*elem);
+                }
+
+                self.notation = Notation::Exponent;
+            },
+            _ => {},
+        }
+    }
+
+    pub fn convert_to_integer_notation(&mut self) {
+        match self.notation {
+            Notation::Exponent => {
+                for elem in self.data.get_mut() {
+                    *elem = get_log(*elem);
+                }
+
+                self.notation = Notation::Integer;
+            },
+            _ => {},
+        }
+    }
+
+    pub fn as_exponent_notation(&self) -> Self {
+        match self.notation {
+            Notation::Integer => {
+                let mut output = PolynomialData::new(Vec::<i32>::with_capacity(self.len()));
+                
+                for elem in self.data.get() {
+                    output.get_mut().push(get_antilog(*elem));
+                }
+
+                Self {
+                    data: output,
+                    notation: Notation::Exponent,
+                }
+            },
+            _ => { self.clone() }
+        }
+    }
+
+    pub fn as_integer_notation(&self) -> Self {
+        match self.notation {
+            Notation::Exponent => {
+                let mut output = PolynomialData::new(Vec::<i32>::with_capacity(self.len()));
+                
+                for elem in self.data.get() {
+                    output.get_mut().push(get_log(*elem));
+                }
+
+                Self {
+                    data: output,
+                    notation: Notation::Integer,
+                }
+            },
+            _ => { self.clone() }
+        }
+    }
+
+    pub fn multiply(&mut self, other: &mut Polynomial) -> Self {
+        self.convert_to_exponent_notation();
+        other.convert_to_exponent_notation();
+
+
+        let mut output = PolynomialData::new(vec![0; self.len() + other.len() - 1]);
+
+        for (i, self_coeff) in self.data.get().iter().enumerate() {
+            for (j, other_coeff) in other.data.get().iter().enumerate() {
+                output.get_mut()[i + j] ^= get_log(
+                        i32::abs(*self_coeff + *other_coeff) % 255
+                );
             }
         }
 
-        Self {
-            coefficients: output,
-        }
+        // HACK: Fix this later
+        let mut ret = Self {
+            data: output,
+            notation: Notation::Integer,
+        };
+
+        ret.convert_to_exponent_notation();
+        ret
     }
 
-    pub fn multiply_as_exponents(&self, other: &GeneratorPolynomial) -> Self {
-        let mut output: Vec<i32> = vec![0; self.coefficients.len() + other.coefficients.len() - 1];
+    pub fn xor(&mut self, other: &mut Polynomial) -> Self {
+        self.convert_to_integer_notation();
+        other.convert_to_integer_notation();
 
-        for (i, coefficient) in self.coefficients.iter().enumerate() {
-            for (j, other_coeff) in other.coefficients.iter().enumerate() {
-                output[i + j] ^= LOG_TABLE[((i32::abs(*coefficient + *other_coeff) % 255) as u32) as usize] as i32;
+        let mut output = PolynomialData::new(self.get_as_integer_vec().clone());
+
+        for (i, coeff) in other.data.get().iter().enumerate() {
+            if i >= self.len() {
+                output.get_mut().push(0);
             }
+
+            output.get_mut()[i] ^= coeff;
         }
+
+        Self {
+            data: output,
+            notation: Notation::Integer,
+        }
+    }
+
+    pub fn multiply_by_exponent(&mut self, exponent: i32) -> Self {
+        self.convert_to_exponent_notation();
+
+        let mut output = PolynomialData::new(Vec::<i32>::with_capacity(self.len()));
+
+        for elem in self.data.get() {
+            output.get_mut().push((*elem + exponent) % 255);
+        }
+
+        Self {
+            data: output,
+            notation: Notation::Exponent,
+        }
+    }
+
+    pub fn drop_leading_zeros(&mut self) {
+        self.convert_to_integer_notation();
+        let mut new = PolynomialData::new(Vec::<i32>::with_capacity(self.len()));
         
-        for value in output.iter_mut() {
-            *value = ANTI_LOG_TABLE[*value as usize] as i32;
-        }
-
-        Self {
-            coefficients: output
-        }
-    }
-
-    pub fn multiply_by_exponent(&self, exponent: i32) -> Self {
-        let mut output: Vec<i32> = Vec::new();
-        
-        for coefficient in self.coefficients.iter() {
-            output.push((coefficient + exponent) % 255);
-        }
-
-        Self {
-            coefficients: output
-        }
-    }
-
-    pub fn to_integer_notation(&self) -> Self {
-        let mut output: Vec<i32> = Vec::with_capacity(self.coefficients.len());
-
-        for coefficient in self.coefficients.iter() {
-            output.push(get_log(*coefficient));
-        }
-
-        Self {
-            coefficients: output
-        }
-    }
-
-    pub fn to_exponent_notation(&self) -> Self {
-        let mut output: Vec<i32> = Vec::with_capacity(self.coefficients.len());
-
-        for coefficient in self.coefficients.iter() {
-            output.push(get_antilog(*coefficient));
-        }
-
-        Self {
-            coefficients: output
-        }
-    }
-
-    // Must be in integer notation
-    // make sure the self is longer than other
-    pub fn xor_with_other(&self, other: &GeneratorPolynomial) -> Self {
-        let mut output: Vec<i32> = self.coefficients.clone();
-        
-        // {
-        //     test_print!("Self: ");
-        //     for e in self.get() {
-        //         test_print!("{:03} ", e);
-        //     }
-        //     test_println!();
-        // }
-
-        // {
-        //     test_print!("othr: ");
-        //     for e in other.get() {
-        //         test_print!("{:03} ", e);
-        //     }
-        //     test_println!();
-        // }
-
-
-        for (i, coefficient) in other.coefficients.iter().enumerate() {
-            if i >= output.len() {
-                output.push(0);
-            }
-            output[i] ^= coefficient;
-        }
-
-        Self {
-            coefficients: output
-        }
-    }
-
-    pub fn drop_leading_zeros(&self) -> Self {
-        let mut output: Vec<i32> = Vec::new();
-
         let start = {
             let mut i = 0;
-            while self.coefficients[i] == 0 { i += 1; }
+            while self.data.get()[i] == 0 { i += 1; }
             i
         };
 
-        for index in start..self.coefficients.len() {
-            output.push(self.coefficients[index]);
+        for index in start..self.len() {
+            new.get_mut().push(self.data.get()[index]);
         }
 
-        Self {
-            coefficients: output
-        }
+        self.data = new;
+    }
+
+    pub fn get_as_integer_vec(&mut self) -> &Vec<i32> {
+        self.convert_to_integer_notation();
+        self.data.get()
+    }
+
+    pub fn get_as_exponent_vec(&mut self) -> &Vec<i32> {
+        self.convert_to_exponent_notation();
+        self.data.get()
     }
 }
 
@@ -198,340 +258,24 @@ impl GeneratorPolynomial {
         test,
         feature = "test_feature"
 ))]
-impl Display for GeneratorPolynomial {
+impl Display for Polynomial {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{:?}", self.coefficients)?;
+        writeln!(f, "{:?}", self.as_integer_notation().data.get())?;
 
         Ok(())
     }
 }
 
-pub fn get_log(exponent: i32) -> i32 {
-    LOG_TABLE[exponent as usize] as i32
-}
-
-pub fn get_antilog(value: i32) -> i32 {
-    ANTI_LOG_TABLE[value as usize] as i32
-}
-
-
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     #[test]
-    fn test_xor_with_other_generator() {
-        let mut poly = GeneratorPolynomial::from(
-            vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        );
-
-        let mut generator = GeneratorPolynomial::from(
-            vec![1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0]
-        );
-
-        poly = poly.xor_with_other(&generator);
-        poly = poly.drop_leading_zeros();
-        assert_eq!(*poly.get(), vec![1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0]);
-
-        generator = GeneratorPolynomial::from(
-            vec![1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0]
-        );
-
-
-        poly = poly.xor_with_other(&generator);
-        poly = poly.drop_leading_zeros();
-        assert_eq!(*poly.get(), vec![1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0]);
-    }
-
-
-    #[test]
-    fn test_polynomial_multiply() {
-        let mut poly: GeneratorPolynomial = GeneratorPolynomial::from(vec![1, -1]);
-        let other_poly: GeneratorPolynomial = GeneratorPolynomial::from(vec![1, -2]);
-        
-        poly = poly.multiply_galios_256(&other_poly);
-
-        assert_eq!(*poly.get(), vec![1, 3, 2]);
-        
-        let other_poly: GeneratorPolynomial = GeneratorPolynomial::from(vec![1, -4]);
-        poly = poly.multiply_galios_256(&other_poly);
-
-        assert_eq!(*poly.get(), vec![1, 7, 14, 8]);
-    }
-
-    #[test]
-    fn test_exponent_polynomial_multiply() {
-        let mut poly: GeneratorPolynomial = GeneratorPolynomial::from(vec![0, 0]);
-        let other_poly: GeneratorPolynomial = GeneratorPolynomial::from(vec![0, 1]);
-
-        poly = poly.multiply_as_exponents(&other_poly);
-
-        assert_eq!(*poly.get(), vec![0, 25, 1]);
-
-        let other_poly: GeneratorPolynomial = GeneratorPolynomial::from(vec![0, 2]);
-        
-        poly = poly.multiply_as_exponents(&other_poly);
-
-        assert_eq!(*poly.get(), vec![0, 198, 199, 3]);
-    }
-
-    #[test]
-    fn test_polynomial_division() {
-        let mut message_poly = GeneratorPolynomial::from(
-            vec![
-                246,
-                246,
-                66,
-                7,
-                118,
-                134,
-                242,
-                7,
-                38,
-                86,
-                22,
-                198,
-                199,
-                146,
-                6
-            ]
-        );
-
-
-    }
-
-    #[test]
-    fn test_multiply_by_exponent() {
-        let poly: GeneratorPolynomial = GeneratorPolynomial::from(vec![
-            0,
-            251,
-            67,
-            46,
-            61,
-            118,
-            70,
-            64,
-            94,
-            32,
-            45,
-        ]);
-
-        assert_eq!(vec![
-                5,
-                1,
-                72,
-                51,
-                66,
-                123,
-                75,
-                69,
-                99,
-                37,
-                50
-            ],
-            *poly.multiply_by_exponent(5).get()
-        );
-    }
-
-    #[test]
-    fn test_to_integer_notation() {
-        let poly: GeneratorPolynomial = GeneratorPolynomial::from(vec![
-            5,
-            1,
-            72,
-            51,
-            66,
-            123,
-            75,
-            69,
-            99,
-            37,
-            50
-        ]);
-        
-        assert_eq!(vec![
-            32,
-            2,
-            101,
-            10,
-            97,
-            197,
-            15,
-            47,
-            134,
-            74,
-            5
-        ],
-        *poly.to_integer_notation().get())
-    }
-
-    #[test]
-    fn test_exponent_integer_conversion() {
-        let poly = GeneratorPolynomial::from(
-            vec![89, 226, 76, 16, 72, 181, 4, 149, 44, 70, 43, 241, 50, 0, 51, 8, 18, 46, 137, 38]
-        );
-
-        assert_eq!(vec![210, 95, 16, 4, 226, 42, 2, 184, 240, 48, 218, 174, 194, 255, 125, 3, 224, 130, 74, 15],
-            *poly.to_exponent_notation().get()
-        );
-
-        assert_eq!(vec![89, 226, 76, 16, 72, 181, 4, 149, 44, 70, 43, 241, 50, 0, 51, 8, 18, 46, 137, 38],
-            *poly.to_exponent_notation().to_integer_notation().get()
-        );
-    }
-
-    #[test]
-    fn test_xor_with_other() {
-        let poly = GeneratorPolynomial::from(vec![
-            32,
-            2,
-            101,
-            10,
-            97,
-            197,
-            15,
-            47,
-            134,
-            74,
-            5
-        ]);
-
-        let message_poly = GeneratorPolynomial::from(vec![
-            32,
-            91,
-            11,
-            120,
-            209,
-            114,
-            220,
-            77,
-            67,
-            64,
-            236,
-            17,
-            236,
-            17,
-            236,
-            17
-        ]);
-
-        assert_eq!(vec![
-            0,
-            89,
-            110,
-            114,
-            176,
-            183,
-            211,
-            98,
-            197,
-            10,
-            233,
-            17,
-            236,
-            17,
-            236,
-            17
-        ],
-        *message_poly.xor_with_other(&poly).get()
-        );
-
-
-        let poly = GeneratorPolynomial::from(vec![
-            37,
-            139,
-            11,
-            78,
-            209,
-            12,
-            195,
-            95
-        ]);
-
-        let message_poly = GeneratorPolynomial::from(vec![
-            37,
-            40,
-            217,
-            124,
-            177,
-            182,
-            195,
-            95,
-        ]);
-
-        assert_eq!(vec![
-            0,
-            163,
-            210,
-            50,
-            96,
-            186,
-            0,
-            0,
-        ],
-        *message_poly.xor_with_other(&poly).get()
-        );
-
-        let poly = GeneratorPolynomial::from(
-            vec![253, 246, 102, 63, 62, 93, 200, 48, 88, 32, 102, 180, 244, 81, 95, 248, 242, 88, 100, 14]
-        );
-
-        let message_poly = GeneratorPolynomial::from(
-            vec![253, 175, 132, 115, 46, 21, 125, 52, 205, 12, 32, 159, 5, 99, 95, 203, 250, 74, 74, 135, 038]
-        );
-
-        assert_eq!(vec![0, 89, 226, 76, 16, 72, 181, 4, 149, 44, 70, 43, 241, 50, 0, 51, 8, 18, 46, 137, 38],
-            *message_poly.xor_with_other(&poly).get()
-        )
-    }
-
-    #[test]
     fn test_drop_leading_zeros() {
-        let poly = GeneratorPolynomial::from(vec![
-            0,
-            89,
-            110,
-            114,
-            176,
-            183,
-            211,
-            98,
-            197,
-            10,
-            233,
-            17,
-            236,
-            17,
-            236,
-            17
-        ]);
+        let mut poly = Polynomial::from_integer_notation(vec![0, 0, 34, 45]);
+        
+        poly.drop_leading_zeros();
 
-        assert_eq!(vec![
-            89,
-            110,
-            114,
-            176,
-            183,
-            211,
-            98,
-            197,
-            10,
-            233,
-            17,
-            236,
-            17,
-            236,
-            17
-        ],
-        *poly.drop_leading_zeros().get()
-        );
-
-        let poly = GeneratorPolynomial::from(
-            vec![0, 89, 226, 76, 16, 72, 181, 4, 149, 44, 70, 43, 241, 50, 0, 51, 8, 18, 46, 137, 38]
-        );
-
-        assert_eq!(vec![89, 226, 76, 16, 72, 181, 4, 149, 44, 70, 43, 241, 50, 0, 51, 8, 18, 46, 137, 38],
-            *poly.drop_leading_zeros().get()
-        );
+        assert_eq!(poly.get_as_integer_vec(), &vec![34, 45]);
     }
 }

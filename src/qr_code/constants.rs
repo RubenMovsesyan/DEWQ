@@ -1,4 +1,5 @@
 pub const MAX_VERSION: usize = 40;
+pub const BYTE_SIZE: usize = 8;
 // the total number of codewords for each error correction level
 // index 0 = Version 1
 // index 39 = Version 40
