@@ -1,4 +1,5 @@
 use non_std::Vec;
+use crate::alloc::vec;
 use super::bit::Bit;
 
 #[cfg(any(
@@ -29,6 +30,11 @@ use std::println;
 use std::print;
 
 
+// Helper functions
+fn get_byte_location(j: usize) -> (usize, usize) {
+    (j / 8, j % 8)
+}
+
 
 // bitmaps can only be square in size
 pub struct BitMap {
@@ -38,17 +44,8 @@ pub struct BitMap {
 
 impl BitMap {
     pub fn new(size: usize) -> Self {
-        let mut map: Vec<Vec<u8>> = Vec::with_capacity(size);
-        for _ in 0..=size {
-            let mut row: Vec<u8> = Vec::with_capacity((size / 8) + 1);
-            for _ in 0..=(size / 8) {
-                row.push(0);
-            }
-            map.push(row);
-        }
-
         Self {
-            map,
+            map: vec![vec![0u8; (size / 8) + 1]; size],
             size
         }
     }
@@ -56,10 +53,12 @@ impl BitMap {
     pub fn set<B>(&mut self, i: usize, j: usize, bit: B) 
         where B: Into<Bit>
     {
+        if i >= self.size || j >= self.size { return; }
+
+
         let row = &mut self.map[i];
 
-        let byte = j / 8;
-        let byte_offset = j % 8;
+        let (byte, byte_offset) = get_byte_location(j);
 
         match bit.into() {
             Bit::One => { row[byte] |= 1 << byte_offset },
@@ -67,24 +66,18 @@ impl BitMap {
         }
     }
 
-    // NOTE: This can be done better by using the entire byte to invert rather
-    // than bit by bit
     pub fn invert(&mut self) {
-        for i in 0..self.size {
-            let row = &mut self.map[i];
-            for j in 0..self.size {
-                let byte = j / 8;
-                let byte_offset = j % 8;
-                row[byte] ^= 1 << byte_offset;
-            }
-        }
+        self.map.iter_mut().for_each(|inner_vec| {
+            inner_vec.iter_mut().for_each(|byte| {
+                *byte ^= 0xFF;
+            });
+        });
     }
 
     pub fn invert_bit(&mut self, i: usize, j: usize) {
         let row = &mut self.map[i];
 
-        let byte = j / 8;
-        let byte_offset = j % 8;
+        let (byte, byte_offset) = get_byte_location(j);
 
         row[byte] ^= 1 << byte_offset;
     }
@@ -92,8 +85,7 @@ impl BitMap {
     pub fn get(&self, i: usize, j: usize) -> Bit {
         let row = &self.map[i];
 
-        let byte = j / 8;
-        let byte_offset = j % 8;
+        let (byte, byte_offset) = get_byte_location(j);
 
         (row[byte] & (1 << byte_offset)).into()
     }

@@ -33,11 +33,18 @@ mod bit_utils;
 mod galios;
 
 fn main() {
-    let mut my_qr = QRMode::analyze_data("HELLO WORLD HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORLD", ErrorCorrectionLevel::Q);
-    // let mut my_qr = QRMode::analyze_data("HELLO WORLD", ErrorCorrectionLevel::Q);
-    let mut bits = my_qr.encode();
-    let qr_data = my_qr.generate_error_correction(bits);
-    bits = my_qr.structure_codewords(qr_data);
+    // let mut my_qr = QRMode::analyze_data("HELLO WORLD HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORLD", ErrorCorrectionLevel::Q);
+    // // let mut my_qr = QRMode::analyze_data("HELLO WORLD", ErrorCorrectionLevel::Q);
+    // let mut bits = my_qr.encode();
+    // let qr_data = my_qr.generate_error_correction(bits);
+    // bits = my_qr.structure_codewords(qr_data);
 
-    my_qr.create_bit_map(bits);
+    // my_qr.create_bit_map(bits);
+
+
+    let mut bitmap = BitMap::new(10);
+    bitmap.invert();
+    bitmap.set(0, 9, 0);
+    bitmap.set(0, 0, 0);
+    test_println!("{}", bitmap);
 }
