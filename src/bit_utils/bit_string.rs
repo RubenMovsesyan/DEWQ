@@ -136,25 +136,6 @@ impl BitString {
         self.bits_len
     }
 
-    // TODO: make sure to check if the bit string is right shiftable
-    pub fn right_shift(&mut self) {
-        for index in (0..self.bits.len()).rev() {
-            let byte = self.bits[index];
-            
-            if byte & 1 == 1 {
-                if index >= self.bits.len() - 1 {
-                    self.bits.push(0);
-                }
-                self.bits[index + 1] |= 0b10000000;
-            }
-
-
-            self.bits[index] >>= 1;
-        }
-
-        self.bits_len += 1;
-    }
-
     pub fn as_hex(&self) -> HexStr {
         let mut chars: HexStr = HexStr(Vec::new());
 

@@ -40,4 +40,11 @@ fn main() {
     bits = my_qr.structure_codewords(qr_data);
 
     my_qr.create_bit_map(bits);
+
+
+    // let mut bitmap = BitMap::new(10);
+    // bitmap.invert();
+    // bitmap.set(0, 9, 0);
+    // bitmap.set(0, 0, 0);
+    // test_println!("{}", bitmap);
 }
