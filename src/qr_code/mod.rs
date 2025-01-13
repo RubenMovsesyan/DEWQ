@@ -538,30 +538,28 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
     let mut index = 0;
 
 
+    // Add the version information if the version is greater than 7
     if version >= 7 {
         // Get the format information bits and error correction for those bits
-        let bits: u32 = {
+        let version_bits: u32 = {
             let data = version as u32 + 1;
             // Generator polynomial: x^12 + x^11 + x^10 + x^9 + x^8 + x^5 + x^2 + 1
-            let generator_polynomial = 0x1F25;
+            const GENERATOR_POLYNOMIAL = 0x1F25;
 
             let mut rem: u32 = data;
             // This is the same as doing a division by the generator polynomial until the remainder is
             // less than 4096
             for _ in 0..12 {
-                rem = (rem << 1) ^ ((rem >> 11) * generator_polynomial);
+                rem = (rem << 1) ^ ((rem >> 11) * GENERATOR_POLYNOMIAL);
             }
 
             (data << 12) | rem
         };
 
-        test_println!("bits: {:018b}", bits);
-
         for j in 0..6 {
             for i in 0..3 {
-                bit_map.set(bit_map.size() - 11 + i, j, bits & (1 << index));
-                bit_map.set(j, bit_map.size() - 11 + i, bits & (1 << index));
-
+                bit_map.set(bit_map.size() - 11 + i, j, version_bits & (1 << index));
+                bit_map.set(j, bit_map.size() - 11 + i, version_bits & (1 << index));
 
                 index += 1;
             }
@@ -575,22 +573,19 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
         let data = error_correction_level.get_format_bits() << 3 | mask;
 
         // Generator polynomial: x^10 + x^8 + x^5 + x^4 + x^2 + x + 1
-        let generator_polynomial = 0x537;
+        const GENERATOR_POLYNOMIAL = 0x537;
 
         let mut rem: u32 = data;
         // This is the same as doing a division by the generator polynomial until the remainder is
         // less than 1024
         for _ in 0..10 {
-            rem = (rem << 1) ^ ((rem >> 9) * generator_polynomial);
+            rem = (rem << 1) ^ ((rem >> 9) * GENERATOR_POLYNOMIAL);
         }
 
-        // ((data << 10) | rem) ^ error_correction_level.get_format_mask_bits()
         ((data << 10) | rem) ^ 0x5412
     };
-    test_println!("other bits: {:b}", bits);
 
     for i in 0..=5 {
-        // Come up with a better solution than this
         let bit = bits & (0x4000 >> index);
         bit_map.set(8, i, bit);
         bit_map.set(bit_map.size() - 1 - i, 8, bit);
@@ -605,14 +600,17 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
     );
     index += 3;
 
-    bit_map.set(bit_map.size() - 6, 8, bit_6);
+    
+    // Set bits 6, 7, and 8
     bit_map.set(8, 7, bit_6);
+    bit_map.set(bit_map.size() - 6, 8, bit_6);
 
     bit_map.set(8, 8, bit_7);
     bit_map.set(8, bit_map.size() - 7, bit_7);
 
     bit_map.set(7, 8, bit_8);
     bit_map.set(8, bit_map.size() - 6, bit_8);
+
 
     for i in 9..=14 {
         let bit = bits & (0x4000 >> index);
@@ -622,6 +620,7 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
     }
 }
 
+// TODO: Add support for other data masking as well
 fn mask_data(bit_map: &mut BitMap, reservations: &BitMap) {
     // Doing data masking number 0
     for row in 0..bit_map.size() {
@@ -641,6 +640,15 @@ fn place_data_bits(bit_map: &mut BitMap, reservations: &BitMap, bits: &BitString
         Down,
     }
 
+    impl Direction {
+        fn toggle(&mut self) {
+            match self {
+                Direction::Up => { *self = Direction::Down; },
+                Direction::Down => { *self = Direction::Up; },
+            }
+        }
+    }
+
     // Place bits up in a zig zag pattern
     fn place_bits(
         bit_map: &mut BitMap, 
@@ -648,7 +656,7 @@ fn place_data_bits(bit_map: &mut BitMap, reservations: &BitMap, bits: &BitString
         bits: &BitString, 
         index: &mut usize, 
         x_pos: usize,
-        direction: Direction
+        direction: &Direction
     ) {
         let mut y_pos = match direction {
             Direction::Up => bit_map.size() - 1,
@@ -682,57 +690,51 @@ fn place_data_bits(bit_map: &mut BitMap, reservations: &BitMap, bits: &BitString
 
     let mut index = 0;
     let mut x_pos = bit_map.size() - 1;
-    
+    let mut current_direction = Direction::Up;
+
     while x_pos > 0 {
-        place_bits(bit_map, reservations, bits, &mut index, x_pos, Direction::Up);
+        place_bits(bit_map, reservations, bits, &mut index, x_pos, &current_direction);
+        
         if x_pos < 2 {
             break;
-        }
-        x_pos -= 2;
-        if x_pos == 6 {
-            x_pos -= 1;
         }
 
-        place_bits(bit_map, reservations, bits, &mut index, x_pos, Direction::Down);
-        if x_pos < 2 {
-            break;
-        }
         x_pos -= 2;
 
         if x_pos == 6 {
             x_pos -= 1;
         }
+
+        current_direction.toggle();
     }
 }
 
 fn reserve_format_information_areas(reservations: &mut BitMap) {
-    let size = reservations.size();
-    let version = ((size - 21) / 4) + 1;
+    let version = ((reservations.size() - 21) / 4) + 1;
 
     if version >= 7 {
         for i in 0..=5 {
-            reservations.set(i, size - 11, 1);
-            reservations.set(i, size - 10, 1);
-            reservations.set(i, size - 9, 1);
+            reservations.set(i, reservations.size() - 11, 1);
+            reservations.set(i, reservations.size() - 10, 1);
+            reservations.set(i, reservations.size() - 9, 1);
 
-            reservations.set(size - 11, i, 1);
-            reservations.set(size - 10, i, 1);
-            reservations.set(size - 9, i, 1);
+            reservations.set(reservations.size() - 11, i, 1);
+            reservations.set(reservations.size() - 10, i, 1);
+            reservations.set(reservations.size() - 9, i, 1);
         }
     } 
 
     for i in 0..=8 {
         reservations.set(i, 8, 1);
         reservations.set(8, i, 1);
-        reservations.set(size - i, 8, 1);
-        reservations.set(8, size - i, 1);
+        reservations.set(reservations.size() - i, 8, 1);
+        reservations.set(8, reservations.size() - i, 1);
     }
 }
 
 fn create_dark_module(bit_map: &mut BitMap, reservations: &mut BitMap) {
-    let size = bit_map.size();
-    bit_map.set(size - 8, 8, Bit::One);
-    reservations.set(size - 8, 8, Bit::One);
+    bit_map.set(bit_map.size() - 8, 8, Bit::One);
+    reservations.set(reservations.size() - 8, 8, Bit::One);
 }
 
 fn create_timing_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
