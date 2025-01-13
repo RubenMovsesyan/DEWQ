@@ -1,30 +1,19 @@
+use crate::alloc::vec;
 use crate::bit_utils::{bit::*, bit_string::*, bitmap::*};
 use crate::galios::*;
+use crate::test_utils::{test_print, test_println};
 use non_std::Vec;
-use crate::alloc::vec;
-use crate::test_utils::{test_println, test_print};
 
-#[cfg(any(
-        test,
-        feature = "test_feature"
-))]
+#[cfg(any(test, feature = "test_feature"))]
 extern crate std;
 
-#[cfg(any(
-        test,
-        feature = "test_feature"
-))]
+#[cfg(any(test, feature = "test_feature"))]
 #[macro_use]
 use std::println;
 
-
-#[cfg(any(
-        test,
-        feature = "test_feature"
-))]
+#[cfg(any(test, feature = "test_feature"))]
 #[macro_use]
 use std::print;
-
 
 // Constants
 use crate::qr_code::constants::*;
@@ -99,7 +88,6 @@ impl ErrorCorrectionLevel {
         }
     }
 
-    
     pub fn get_alpha_numeric_version_size(&self, version: usize) -> usize {
         match self {
             ErrorCorrectionLevel::L => ALPHA_NUMERIC_L_MAX_CAPACITY[version],
@@ -120,38 +108,30 @@ impl ErrorCorrectionLevel {
 
     pub fn get_block_data(&self, version: usize) -> (usize, usize, usize, usize) {
         match self {
-            ErrorCorrectionLevel::L => {
-                (
-                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_L[version],
-                    NUM_CODE_WORDS_PER_BLOCK_GROUP_1_L[version],
-                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_L[version],
-                    NUM_CODE_WORDS_PER_BLOCK_GROUP_2_L[version],
-                )
-            },
-            ErrorCorrectionLevel::M => {
-                (
-                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_M[version],
-                    NUM_CODE_WORDS_PER_BLOCK_GROUP_1_M[version],
-                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_M[version],
-                    NUM_CODE_WORDS_PER_BLOCK_GROUP_2_M[version],
-                )
-            },
-            ErrorCorrectionLevel::Q => {
-                (
-                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_Q[version],
-                    NUM_CODE_WORDS_PER_BLOCK_GROUP_1_Q[version],
-                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_Q[version],
-                    NUM_CODE_WORDS_PER_BLOCK_GROUP_2_Q[version],
-                )
-            },
-            ErrorCorrectionLevel::H => {
-                (
-                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_H[version],
-                    NUM_CODE_WORDS_PER_BLOCK_GROUP_1_H[version],
-                    NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_H[version],
-                    NUM_CODE_WORDS_PER_BLOCK_GROUP_2_H[version],
-                )
-            },
+            ErrorCorrectionLevel::L => (
+                NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_L[version],
+                NUM_CODE_WORDS_PER_BLOCK_GROUP_1_L[version],
+                NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_L[version],
+                NUM_CODE_WORDS_PER_BLOCK_GROUP_2_L[version],
+            ),
+            ErrorCorrectionLevel::M => (
+                NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_M[version],
+                NUM_CODE_WORDS_PER_BLOCK_GROUP_1_M[version],
+                NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_M[version],
+                NUM_CODE_WORDS_PER_BLOCK_GROUP_2_M[version],
+            ),
+            ErrorCorrectionLevel::Q => (
+                NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_Q[version],
+                NUM_CODE_WORDS_PER_BLOCK_GROUP_1_Q[version],
+                NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_Q[version],
+                NUM_CODE_WORDS_PER_BLOCK_GROUP_2_Q[version],
+            ),
+            ErrorCorrectionLevel::H => (
+                NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_H[version],
+                NUM_CODE_WORDS_PER_BLOCK_GROUP_1_H[version],
+                NUM_ERROR_CORRECTION_BLOCKS_GROUP_2_H[version],
+                NUM_CODE_WORDS_PER_BLOCK_GROUP_2_H[version],
+            ),
         }
     }
 
@@ -184,7 +164,8 @@ fn is_alphanumeric(input: &str) -> bool {
         || (character > 35 && character < 38)   // $ and %
         || (character > 41 && character < 44)   // * and +
         || (character > 44 && character < 59)   // -, ., /, numerals, and :
-        || (character > 64 && character < 90)   // Capital Letters
+        || (character > 64 && character < 90)
+            // Capital Letters
         ) {
             return false;
         }
@@ -196,11 +177,12 @@ fn is_alphanumeric(input: &str) -> bool {
 // ----------------------------------------------------------
 
 impl QRMode {
-    pub fn analyze_data<'a, S>(input: S, error_correction_level: ErrorCorrectionLevel) -> QRMode 
-        where S: Into<&'a str>
+    pub fn analyze_data<'a, S>(input: S, error_correction_level: ErrorCorrectionLevel) -> QRMode
+    where
+        S: Into<&'a str>,
     {
         let converted_input: &str = input.into();
-        
+
         if is_numeric(&converted_input) {
             let mut digit_buffer: Vec<u8> = Vec::with_capacity(converted_input.len());
             for i in 0..converted_input.len() {
@@ -235,7 +217,9 @@ impl QRMode {
             let version = {
                 let mut out: usize = 0;
                 for version_index in (0..MAX_VERSION).rev() {
-                    if data.len() > error_correction_level.get_alpha_numeric_version_size(version_index) {
+                    if data.len()
+                        > error_correction_level.get_alpha_numeric_version_size(version_index)
+                    {
                         out = version_index + 1;
                         break;
                     }
@@ -246,7 +230,7 @@ impl QRMode {
             return QRMode::AlphaNumeric(AlphaNumericQrCode {
                 data,
                 version,
-                error_correction_level
+                error_correction_level,
             });
         } else if converted_input.is_ascii() {
             return QRMode::Byte(converted_input.bytes().collect());
@@ -271,25 +255,23 @@ impl QRMode {
             QRMode::Byte(_bytes) => todo!(),
         }
     }
-    
 
     pub fn encode(&mut self) -> BitString {
         let mut bit_string: BitString = BitString::new();
         let size_of_character_length_bits: usize;
 
-
         // Perform the mode dependent encoding
         match self {
             QRMode::Numeric(_numbers) => {
                 todo!()
-            },
+            }
             QRMode::AlphaNumeric(anqr) => {
                 // Adding the mode indicator
                 bit_string.push_bit(0);
                 bit_string.push_bit(0);
                 bit_string.push_bit(1);
                 bit_string.push_bit(0);
-                
+
                 size_of_character_length_bits = {
                     let out: usize;
                     if (anqr.version() + 1) < 10 {
@@ -312,16 +294,16 @@ impl QRMode {
                 for value_index in (0..anqr.data_len()).step_by(2) {
                     // Since stepping by 2 we know that this is always going to be Some()
                     let first_value = unsafe { anqr.data().get(value_index).unwrap_unchecked() };
-                    
+
                     match anqr.data().get(value_index + 1) {
                         Some(second_value) => {
                             let encoded = (*first_value as u16 * 45) + *second_value as u16;
-                            
+
                             // 11 bits for double characters
                             for i in (0..11).rev() {
                                 bit_string.push_bit(encoded & (1 << i));
                             }
-                        },
+                        }
                         None => {
                             let encoded = *first_value;
 
@@ -332,26 +314,21 @@ impl QRMode {
                         }
                     }
                 }
-
-            },
+            }
             QRMode::Byte(_bytes) => {
                 todo!()
             }
         }
 
-
         // The rest is the mode independed encoding
-        let required_number_of_bits = 
-            self
+        let required_number_of_bits = self
             .error_correction_level()
-            .get_num_codewords(self.version()) * BYTE_SIZE;
-
+            .get_num_codewords(self.version())
+            * BYTE_SIZE;
 
         // Add terminator 0s if necessary
         {
-            let total_bits = bit_string.len() 
-                - 4 
-                - (size_of_character_length_bits);
+            let total_bits = bit_string.len() - 4 - (size_of_character_length_bits);
 
             let bit_difference = required_number_of_bits - total_bits;
 
@@ -393,7 +370,6 @@ impl QRMode {
             bit_string.push_bit(1);
         }
 
-
         test_println!("{}", bit_string.as_hex());
         return bit_string;
     }
@@ -401,12 +377,12 @@ impl QRMode {
     pub fn generate_error_correction(&self, bits: BitString) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
         let mut data: Vec<Vec<u8>> = Vec::new();
         let mut error_correction_data: Vec<Vec<u8>> = Vec::new();
-        
+
         let (
             num_blocks_group_1,
             num_code_words_group_1,
             num_blocks_group_2,
-            num_code_words_group_2
+            num_code_words_group_2,
         ) = self.error_correction_level().get_block_data(self.version());
 
         // Create all the message polynomials from the data codewords
@@ -419,7 +395,6 @@ impl QRMode {
                 block.push(bits.get_byte(index));
                 index += 1;
             }
-
 
             data.push(Vec::from(block.clone()));
             message_polynomials.push(Polynomial::from_integer_notation(block));
@@ -440,21 +415,25 @@ impl QRMode {
             // Create a generator polynomial based on the number of blocks needed
             let mut generator_polynomial = {
                 let mut poly = Polynomial::from_exponent_notation(vec![0, 0]);
-                
-                for i in 1..self.error_correction_level().get_num_error_correction_codewords(self.version()) {
-                    poly = poly.multiply(&mut Polynomial::from_exponent_notation(vec![0, i as i32]));
+
+                for i in 1..self
+                    .error_correction_level()
+                    .get_num_error_correction_codewords(self.version())
+                {
+                    poly =
+                        poly.multiply(&mut Polynomial::from_exponent_notation(vec![0, i as i32]));
                 }
 
                 poly
             };
-
 
             // Perform the long division on the message polynomial with the generator polynomial
             let mut current_message = message_polynomial.clone();
             let mut inter_poly;
             for _ in 0..message_polynomial.len() {
                 // Multiply the generator by the first coefficient of the message polynomial
-                inter_poly = generator_polynomial.multiply_by_exponent(current_message.get_as_exponent_vec()[0]);
+                inter_poly = generator_polynomial
+                    .multiply_by_exponent(current_message.get_as_exponent_vec()[0]);
                 // xor the resulting multiplaction with the current message polynomial
                 inter_poly = inter_poly.xor(&mut current_message);
                 // Drop the leading zeros of the resulting xor operation
@@ -502,7 +481,7 @@ impl QRMode {
                 }
             }
         }
-        
+
         // Create a new bitstring from the data and push the required remainder bits to it
         let mut new_bitstring = BitString::from_vec(new_data);
         new_bitstring.push_bit_times(0, REQUIRED_REMAINDER_BITS[self.version()]);
@@ -510,7 +489,6 @@ impl QRMode {
         new_bitstring
     }
 
-    
     pub fn create_bit_map(&self, bits: BitString) {
         let size = 21 + (4 * (self.version()));
 
@@ -530,13 +508,16 @@ impl QRMode {
     }
 }
 
-fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCorrectionLevel, version: usize) {
+fn add_format_information(
+    bit_map: &mut BitMap,
+    error_correction_level: &ErrorCorrectionLevel,
+    version: usize,
+) {
     // HACK: temparory mask variable while still testing with only mask 0
     let mask = 0;
-    
+
     // Put the bits into the bitmap
     let mut index = 0;
-
 
     // Add the version information if the version is greater than 7
     if version >= 7 {
@@ -544,7 +525,7 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
         let version_bits: u32 = {
             let data = version as u32 + 1;
             // Generator polynomial: x^12 + x^11 + x^10 + x^9 + x^8 + x^5 + x^2 + 1
-            const GENERATOR_POLYNOMIAL = 0x1F25;
+            const GENERATOR_POLYNOMIAL: u32 = 0x1F25;
 
             let mut rem: u32 = data;
             // This is the same as doing a division by the generator polynomial until the remainder is
@@ -565,7 +546,6 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
             }
         }
     }
-    
 
     index = 0;
     // Get the format information bits and error correction for those bits
@@ -573,7 +553,7 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
         let data = error_correction_level.get_format_bits() << 3 | mask;
 
         // Generator polynomial: x^10 + x^8 + x^5 + x^4 + x^2 + x + 1
-        const GENERATOR_POLYNOMIAL = 0x537;
+        const GENERATOR_POLYNOMIAL: u32 = 0x537;
 
         let mut rem: u32 = data;
         // This is the same as doing a division by the generator polynomial until the remainder is
@@ -596,11 +576,10 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
     let (bit_6, bit_7, bit_8) = (
         bits & (0x4000 >> index),
         bits & (0x4000 >> (index + 1)),
-        bits & (0x4000 >> (index + 2))
+        bits & (0x4000 >> (index + 2)),
     );
     index += 3;
 
-    
     // Set bits 6, 7, and 8
     bit_map.set(8, 7, bit_6);
     bit_map.set(bit_map.size() - 6, 8, bit_6);
@@ -610,7 +589,6 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
 
     bit_map.set(7, 8, bit_8);
     bit_map.set(8, bit_map.size() - 6, bit_8);
-
 
     for i in 9..=14 {
         let bit = bits & (0x4000 >> index);
@@ -624,13 +602,13 @@ fn add_format_information(bit_map: &mut BitMap, error_correction_level: &ErrorCo
 fn mask_data(bit_map: &mut BitMap, reservations: &BitMap) {
     // Doing data masking number 0
     for row in 0..bit_map.size() {
-            for column in 0..bit_map.size() {
-                if (row + column) % 2 == 0 {
-                    if reservations.get(row, column) == Bit::Zero {
-                        bit_map.invert_bit(row, column);
-                    }
+        for column in 0..bit_map.size() {
+            if (row + column) % 2 == 0 {
+                if reservations.get(row, column) == Bit::Zero {
+                    bit_map.invert_bit(row, column);
                 }
             }
+        }
     }
 }
 
@@ -643,20 +621,24 @@ fn place_data_bits(bit_map: &mut BitMap, reservations: &BitMap, bits: &BitString
     impl Direction {
         fn toggle(&mut self) {
             match self {
-                Direction::Up => { *self = Direction::Down; },
-                Direction::Down => { *self = Direction::Up; },
+                Direction::Up => {
+                    *self = Direction::Down;
+                }
+                Direction::Down => {
+                    *self = Direction::Up;
+                }
             }
         }
     }
 
     // Place bits up in a zig zag pattern
     fn place_bits(
-        bit_map: &mut BitMap, 
-        reservations: &BitMap, 
-        bits: &BitString, 
-        index: &mut usize, 
+        bit_map: &mut BitMap,
+        reservations: &BitMap,
+        bits: &BitString,
+        index: &mut usize,
         x_pos: usize,
-        direction: &Direction
+        direction: &Direction,
     ) {
         let mut y_pos = match direction {
             Direction::Up => bit_map.size() - 1,
@@ -674,10 +656,12 @@ fn place_data_bits(bit_map: &mut BitMap, reservations: &BitMap, bits: &BitString
                 *index += 1;
             }
 
-            if y_pos == match direction {
-                Direction::Up => 0,
-                Direction::Down => bit_map.size() - 1,
-            } {
+            if y_pos
+                == match direction {
+                    Direction::Up => 0,
+                    Direction::Down => bit_map.size() - 1,
+                }
+            {
                 break;
             }
 
@@ -693,8 +677,15 @@ fn place_data_bits(bit_map: &mut BitMap, reservations: &BitMap, bits: &BitString
     let mut current_direction = Direction::Up;
 
     while x_pos > 0 {
-        place_bits(bit_map, reservations, bits, &mut index, x_pos, &current_direction);
-        
+        place_bits(
+            bit_map,
+            reservations,
+            bits,
+            &mut index,
+            x_pos,
+            &current_direction,
+        );
+
         if x_pos < 2 {
             break;
         }
@@ -722,7 +713,7 @@ fn reserve_format_information_areas(reservations: &mut BitMap) {
             reservations.set(reservations.size() - 10, i, 1);
             reservations.set(reservations.size() - 9, i, 1);
         }
-    } 
+    }
 
     for i in 0..=8 {
         reservations.set(i, 8, 1);
@@ -749,10 +740,9 @@ fn create_timing_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
     }
 }
 
-
 fn get_alignment_pattern_coordinates_list(bit_map_size: usize) -> Vec<usize> {
     let version = ((bit_map_size - 21) / 4) + 1;
-    
+
     let intervals = (version / 7) + 1;
     let distance = 4 * version + 4;
     let mut step = ((distance as f64) / (intervals as f64)).round() as usize;
@@ -766,12 +756,14 @@ fn get_alignment_pattern_coordinates_list(bit_map_size: usize) -> Vec<usize> {
 }
 
 fn create_alignment_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
-    if bit_map.size() <= 21 { return; }
+    if bit_map.size() <= 21 {
+        return;
+    }
 
-    fn add_alignment_pattern (bit_map: &mut BitMap, reservations: &mut BitMap, i: usize, j: usize) {
+    fn add_alignment_pattern(bit_map: &mut BitMap, reservations: &mut BitMap, i: usize, j: usize) {
         // The center dot
         bit_map.set(i, j, Bit::One);
-        
+
         for x in -2..=2 as isize {
             bit_map.set(i - 2, (j as isize + x) as usize, 1);
             bit_map.set(i + 2, (j as isize + x) as usize, 1);
@@ -783,22 +775,23 @@ fn create_alignment_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
         for reservation_x in -2..=2 as isize {
             for reservation_y in -2..=2 as isize {
                 reservations.set(
-                    (reservation_x + i as isize) as usize, 
-                    (reservation_y + j as isize) as usize, 
-                    Bit::One
+                    (reservation_x + i as isize) as usize,
+                    (reservation_y + j as isize) as usize,
+                    Bit::One,
                 );
             }
         }
     }
-    
+
     let coords = get_alignment_pattern_coordinates_list(bit_map.size());
-    
+
     for x in 0..coords.len() {
         for y in 0..coords.len() {
             // Skip the coordinate if it is an invalid placement
             if (x == 0 && y == 0)
-            || (x == 0 && y == coords.len() - 1) 
-            || (x == coords.len() - 1 && y == 0) {
+                || (x == 0 && y == coords.len() - 1)
+                || (x == coords.len() - 1 && y == 0)
+            {
                 continue;
             }
 
@@ -811,9 +804,9 @@ fn create_finder_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
     // Adds and reserves the finder starting from the top left corner i, j
     fn add_finder(
         location: (usize, usize),
-        bit_map: &mut BitMap, 
+        bit_map: &mut BitMap,
         reservations: &mut BitMap,
-        separator_offset: (isize, isize)
+        separator_offset: (isize, isize),
     ) {
         let (i, j) = location;
 
@@ -830,21 +823,21 @@ fn create_finder_patterns(bit_map: &mut BitMap, reservations: &mut BitMap) {
                 bit_map.set(i + x, j + y, 1);
             }
         }
-        
+
         let (i_off, j_off) = separator_offset;
 
         // Reserve the place on the bitmap with the separators as well
         for reservation_x in i_off..=(i_off + 7) {
             for reservation_y in j_off..=(j_off + 7) {
                 reservations.set(
-                    (reservation_x + i as isize) as usize, 
-                    (reservation_y + j as isize) as usize, 
-                    Bit::One
+                    (reservation_x + i as isize) as usize,
+                    (reservation_y + j as isize) as usize,
+                    Bit::One,
                 );
             }
         }
     }
-    
+
     add_finder((0, 0), bit_map, reservations, (0, 0));
     add_finder((bit_map.size() - 7, 0), bit_map, reservations, (-1, 0));
     add_finder((0, bit_map.size() - 7), bit_map, reservations, (0, -1));
@@ -860,11 +853,14 @@ mod tests {
         assert_eq!(qr_mode, QRMode::Numeric(vec![1, 2, 3]));
 
         let qr_mode = QRMode::analyze_data("A113", ErrorCorrectionLevel::L);
-        assert_eq!(qr_mode, QRMode::AlphaNumeric(AlphaNumericQrCode {
-            data: vec![10, 1, 1, 3],
-            version: 0,
-            error_correction_level: ErrorCorrectionLevel::L
-        }));
+        assert_eq!(
+            qr_mode,
+            QRMode::AlphaNumeric(AlphaNumericQrCode {
+                data: vec![10, 1, 1, 3],
+                version: 0,
+                error_correction_level: ErrorCorrectionLevel::L
+            })
+        );
 
         let qr_mode = QRMode::analyze_data("a113", ErrorCorrectionLevel::L);
         assert_eq!(qr_mode, QRMode::Byte(vec![97, 49, 49, 51]));
