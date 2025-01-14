@@ -22,13 +22,20 @@ mod qr_code;
 mod test_utils;
 
 fn main() {
-    let mut my_qr = QRMode::analyze_data("HELLO WORLD HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORLD", ErrorCorrectionLevel::Q);
-    // let mut my_qr = QRMode::analyze_data("HELLO WORLD", ErrorCorrectionLevel::Q);
+    let mut my_qr = QRMode::analyze_data("952397567832568923645632465134298632459623896458976234786234987623458764529456782347862345962345786328462395634578264827845629836458628945689236478562896489756238746587236485623786458", ErrorCorrectionLevel::Q);
     let mut bits = my_qr.encode();
     let qr_data = my_qr.generate_error_correction(bits);
     bits = my_qr.structure_codewords(qr_data);
 
     my_qr.create_bit_map(bits);
+
+    // let mut my_qr = QRMode::analyze_data("HELLO WORLD HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORL HELLO WORLD", ErrorCorrectionLevel::Q);
+    // // let mut my_qr = QRMode::analyze_data("HELLO WORLD", ErrorCorrectionLevel::Q);
+    // let mut bits = my_qr.encode();
+    // let qr_data = my_qr.generate_error_correction(bits);
+    // bits = my_qr.structure_codewords(qr_data);
+
+    // my_qr.create_bit_map(bits);
 
     // let mut bitmap = BitMap::new(10);
     // bitmap.invert();

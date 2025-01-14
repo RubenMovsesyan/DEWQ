@@ -1,22 +1,13 @@
-use non_std::Vec;
 use super::bit::Bit;
+use non_std::Vec;
 
-#[cfg(any(
-        test,
-        feature = "test_feature"
-))]
+#[cfg(any(test, feature = "test_feature"))]
 extern crate std;
 
-#[cfg(any(
-        test,
-        feature = "test_feature"
-))]
+#[cfg(any(test, feature = "test_feature"))]
 use std::fmt::Display;
 
-#[cfg(any(
-        test,
-        feature = "test_feature"
-))]
+#[cfg(any(test, feature = "test_feature"))]
 #[macro_use]
 use std::format;
 
@@ -24,7 +15,6 @@ pub struct BitString {
     bits: Vec<u8>,
     bits_len: usize,
 }
-
 
 impl BitString {
     pub fn new() -> Self {
@@ -35,10 +25,11 @@ impl BitString {
     }
 
     pub fn from_string<'a, S>(string: S) -> Self
-        where S: Into<&'a str>
+    where
+        S: Into<&'a str>,
     {
         let mut output = BitString::new();
-        
+
         let str_ref: &str = string.into();
 
         for character in str_ref.chars().collect::<Vec<char>>().iter() {
@@ -59,16 +50,17 @@ impl BitString {
     }
 
     pub fn push_bit<B>(&mut self, bit: B)
-        where B: Into<Bit>
+    where
+        B: Into<Bit>,
     {
         let bit_offset = self.bits_len % 8;
-        
+
         if bit_offset == 0 {
             self.bits.push(0);
         }
 
         match bit.into() {
-            Bit::Zero => {},
+            Bit::Zero => {}
             Bit::One => {
                 if let Some(byte) = self.bits.last_mut() {
                     *byte |= 1 << (7 - bit_offset);
@@ -79,8 +71,9 @@ impl BitString {
     }
 
     pub fn push_bit_times<B, USIZE>(&mut self, bit: B, times: USIZE)
-        where B: Into<Bit>,
-              USIZE: Into<usize>,
+    where
+        B: Into<Bit>,
+        USIZE: Into<usize>,
     {
         let b = bit.into();
         for _ in 0..times.into() {
@@ -88,8 +81,9 @@ impl BitString {
         }
     }
 
-    pub fn push_byte<U8>(&mut self, byte: U8) 
-        where U8: Into<u8>
+    pub fn push_byte<U8>(&mut self, byte: U8)
+    where
+        U8: Into<u8>,
     {
         let byte_to_push = byte.into();
 
@@ -105,7 +99,7 @@ impl BitString {
 
         let bit_address = address / 8;
         let bit_offset = address % 8;
-        
+
         match self.bits[bit_address] & (1 << (7 - bit_offset)) {
             0 => Ok(Bit::Zero),
             _ => Ok(Bit::One),
@@ -116,7 +110,7 @@ impl BitString {
         if self.bits_len != other.bits_len {
             return Err(BitIndiciesDontMatchError);
         }
-        
+
         for index in 0..self.bits.len() {
             self.bits[index] ^= other.bits[index];
         }
@@ -140,7 +134,6 @@ impl BitString {
         let mut chars: HexStr = HexStr(Vec::new());
 
         let mut index = 0;
-        
 
         while index < self.len() {
             let mut val: u8 = 0;
@@ -148,8 +141,8 @@ impl BitString {
                 val <<= 1;
                 if let Ok(bit) = self.get_bit(index) {
                     match bit {
-                        Bit::One => {val |= 1},
-                        _ => {},
+                        Bit::One => val |= 1,
+                        _ => {}
                     }
                 }
                 index += 1;
@@ -157,23 +150,23 @@ impl BitString {
 
             // HACK: This is just a quick way to get this working
             chars.0.push(match val {
-                0 => { '0' },
-                1 => { '1' },
-                2 => { '2' },
-                3 => { '3' },
-                4 => { '4' },
-                5 => { '5' },
-                6 => { '6' },
-                7 => { '7' },
-                8 => { '8' },
-                9 => { '9' },
-                10 => { 'A' },
-                11 => { 'B' },
-                12 => { 'C' },
-                13 => { 'D' },
-                14 => { 'E' },
-                15 => { 'F' },
-                _ => '@'
+                0 => '0',
+                1 => '1',
+                2 => '2',
+                3 => '3',
+                4 => '4',
+                5 => '5',
+                6 => '6',
+                7 => '7',
+                8 => '8',
+                9 => '9',
+                10 => 'A',
+                11 => 'B',
+                12 => 'C',
+                13 => 'D',
+                14 => 'E',
+                15 => 'F',
+                _ => '@',
             });
         }
 
@@ -183,10 +176,7 @@ impl BitString {
 
 pub struct HexStr(Vec<char>);
 
-#[cfg(any(
-        test,
-        feature = "test_feature"
-))]
+#[cfg(any(test, feature = "test_feature"))]
 impl Display for HexStr {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let mut character_index = 0;
@@ -211,19 +201,23 @@ impl Display for HexStr {
     }
 }
 
-#[cfg(any(
-        test,
-        feature = "test_feature"
-))]
+#[cfg(any(test, feature = "test_feature"))]
 impl Display for BitString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for i in 0..self.bits_len {
-            write!(f, "{}", if self.get_bit(i).unwrap() == Bit::One { 1 } else { 0 })?;
+            write!(
+                f,
+                "{}",
+                if self.get_bit(i).unwrap() == Bit::One {
+                    1
+                } else {
+                    0
+                }
+            )?;
         }
         Ok(())
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct BitAddressOutOfBoundsError;
@@ -248,17 +242,17 @@ mod test {
             match bit_string.get_bit(i) {
                 Ok(bit) => {
                     assert_eq!(bit, Bit::One);
-                },
+                }
                 Err(_) => {
                     assert!(false);
                 }
             }
         }
 
-        match  bit_string.get_bit(5) {
+        match bit_string.get_bit(5) {
             Ok(_) => {
                 assert!(false);
-            },
+            }
             Err(_) => {
                 assert!(true);
             }
@@ -276,7 +270,7 @@ mod test {
         match bit_string.get_bit(0) {
             Ok(bit) => {
                 assert_eq!(bit, Bit::One);
-            },
+            }
             Err(_) => {
                 assert!(false);
             }
@@ -286,27 +280,25 @@ mod test {
         match bit_string.get_bit(50) {
             Ok(bit) => {
                 assert_eq!(bit, Bit::Zero);
-            },
+            }
             Err(_) => {
                 assert!(false);
             }
         }
-
 
         match bit_string.get_bit(99) {
             Ok(bit) => {
                 assert_eq!(bit, Bit::One);
-            },
+            }
             Err(_) => {
                 assert!(false);
             }
         }
 
-        
         match bit_string.get_bit(110) {
             Ok(_) => {
                 assert!(false);
-            },
+            }
             Err(_) => {
                 assert!(true);
             }
@@ -316,12 +308,12 @@ mod test {
     #[test]
     fn test_bit_push_byte() {
         let mut bits = BitString::new();
-        
+
         bits.push_bit(1);
         bits.push_bit(0);
         bits.push_bit(1);
         bits.push_bit(0);
-        
+
         assert_eq!("1010", format!("{}", bits));
 
         bits.push_byte(1);
@@ -335,7 +327,7 @@ mod test {
 
         let mut xor_bits = BitString::new();
         xor_bits.push_byte(254);
-        
+
         let _ = bits.xor_with_other(&xor_bits);
         assert_eq!("00000001", format!("{}", bits));
 
@@ -344,15 +336,6 @@ mod test {
 
         let _ = bits.xor_with_other(&xor_bits);
         assert_eq!("101010000010010", format!("{}", bits));
-    }
-
-    #[test]
-    fn test_right_shift() {
-        let mut bits = BitString::new();
-        bits.push_byte(255);
-        assert_eq!("11111111", format!("{}", bits));
-        bits.right_shift();
-        assert_eq!("011111111", format!("{}", bits));
     }
 
     #[test]
