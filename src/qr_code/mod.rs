@@ -529,7 +529,7 @@ impl QRMode {
             message_polynomials.push(Polynomial::from_integer_notation(block));
         }
 
-        for message_polynomial in message_polynomials {
+        for (index, message_polynomial) in message_polynomials.iter().enumerate() {
             // Create a generator polynomial based on the number of blocks needed
             let mut generator_polynomial = {
                 let mut poly = Polynomial::from_exponent_notation(vec![0, 0]);
@@ -545,8 +545,12 @@ impl QRMode {
                 poly
             };
 
+            // FIXME: the ammount of times that the division happens isn't correct
             // Perform the long division on the message polynomial with the generator polynomial
             let mut current_message = message_polynomial.clone();
+            if index == 7 {
+                test_println!("message: {}", message_polynomial);
+            }
             let mut inter_poly;
             let mut step = 0;
             while step < message_polynomial.len() {
@@ -560,6 +564,11 @@ impl QRMode {
                 while inter_poly.drop_leading_zero() {
                     step += 1;
                 }
+
+                if index == 7 {
+                    test_println!("after xor: {} len: {}", inter_poly, inter_poly.len());
+                }
+
                 // Set the new current message to the resulting computation
                 current_message = inter_poly;
                 step += 1;
@@ -570,8 +579,10 @@ impl QRMode {
                 let mut output: Vec<u8> = Vec::new();
 
                 for elem in current_message.get_as_integer_vec() {
+                    test_print!("{:02X} ", elem);
                     output.push(elem as u8);
                 }
+                test_println!();
 
                 output
             });
