@@ -163,14 +163,10 @@ impl Polynomial {
             }
         }
 
-        // HACK: Fix this later
-        let ret = Self {
+        Self {
             data: output,
             notation: Notation::Integer,
-        };
-
-        // ret.convert_to_exponent_notation();
-        ret
+        }
     }
 
     pub fn xor(&mut self, other: &mut Polynomial) -> Self {
@@ -252,14 +248,10 @@ impl Polynomial {
     }
 
     pub fn get_as_integer_vec(&mut self) -> Vec<i32> {
-        // self.convert_to_integer_notation();
-        // self.data.get()
         self.as_integer_notation().data.get().to_vec()
     }
 
     pub fn get_as_exponent_vec(&mut self) -> Vec<i32> {
-        // self.convert_to_exponent_notation();
-        // self.data.get()
         self.as_exponent_notation().data.get().to_vec()
     }
 }
