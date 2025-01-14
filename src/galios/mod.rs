@@ -164,12 +164,12 @@ impl Polynomial {
         }
 
         // HACK: Fix this later
-        let mut ret = Self {
+        let ret = Self {
             data: output,
             notation: Notation::Integer,
         };
 
-        ret.convert_to_exponent_notation();
+        // ret.convert_to_exponent_notation();
         ret
     }
 
@@ -194,6 +194,13 @@ impl Polynomial {
     }
 
     pub fn multiply_by_exponent(&mut self, exponent: i32) -> Self {
+        if exponent as u8 == u8::MAX {
+            return Self {
+                data: PolynomialData::new(vec![0; self.len()]),
+                notation: Notation::Integer,
+            };
+        }
+
         self.convert_to_exponent_notation();
 
         let mut output = PolynomialData::new(Vec::<i32>::with_capacity(self.len()));
@@ -260,7 +267,15 @@ impl Polynomial {
 #[cfg(any(test, feature = "test_feature"))]
 impl Display for Polynomial {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{:?}", self.as_integer_notation().data.get())?;
+        writeln!(
+            f,
+            "{:?} Notation: {}",
+            self.data.get(),
+            match self.notation {
+                Notation::Integer => "Integer",
+                Notation::Exponent => "Exponent",
+            }
+        )?;
 
         Ok(())
     }
