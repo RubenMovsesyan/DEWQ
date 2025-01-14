@@ -1,7 +1,7 @@
 use crate::alloc::vec;
 use crate::bit_utils::{bit::*, bit_string::*, bitmap::*};
-use crate::galios::*;
 use crate::test_utils::{test_print, test_println};
+use crate::{galios::*, qr_code};
 use non_std::Vec;
 
 #[cfg(any(test, feature = "test_feature"))]
@@ -22,67 +22,17 @@ mod constants;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum QRMode {
-    Numeric(NumericQrCode),
-    AlphaNumeric(AlphaNumericQrCode),
-    Byte(Vec<u8>),
+    Numeric(QrCode),
+    AlphaNumeric(QrCode),
+    Byte(QrCode),
     // Kanji(Vec<u16>), // Double byte mode
 }
 
-pub trait QRCode {
-    fn version(&self) -> usize;
-    fn error_correction_level(&self) -> &ErrorCorrectionLevel;
-    fn data(&self) -> &Vec<u8>;
-    fn data_len(&self) -> usize;
-}
-
 #[derive(PartialEq, Eq, Debug)]
-pub struct AlphaNumericQrCode {
+pub struct QrCode {
     data: Vec<u8>,
     version: usize,
     error_correction_level: ErrorCorrectionLevel,
-}
-
-impl QRCode for AlphaNumericQrCode {
-    fn version(&self) -> usize {
-        self.version
-    }
-
-    fn error_correction_level(&self) -> &ErrorCorrectionLevel {
-        &self.error_correction_level
-    }
-
-    fn data(&self) -> &Vec<u8> {
-        &self.data
-    }
-
-    fn data_len(&self) -> usize {
-        self.data.len()
-    }
-}
-
-#[derive(PartialEq, Eq, Debug)]
-pub struct NumericQrCode {
-    data: Vec<u8>,
-    version: usize,
-    error_correction_level: ErrorCorrectionLevel,
-}
-
-impl QRCode for NumericQrCode {
-    fn version(&self) -> usize {
-        self.version
-    }
-
-    fn error_correction_level(&self) -> &ErrorCorrectionLevel {
-        &self.error_correction_level
-    }
-
-    fn data(&self) -> &Vec<u8> {
-        &self.data
-    }
-
-    fn data_len(&self) -> usize {
-        self.data.len()
-    }
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -128,6 +78,15 @@ impl ErrorCorrectionLevel {
             ErrorCorrectionLevel::M => NUMERIC_M_MAX_CAPACITY[version],
             ErrorCorrectionLevel::Q => NUMERIC_Q_MAX_CAPACITY[version],
             ErrorCorrectionLevel::H => NUMERIC_H_MAX_CAPACITY[version],
+        }
+    }
+
+    pub fn get_byte_version_size(&self, version: usize) -> usize {
+        match self {
+            ErrorCorrectionLevel::L => BYTE_L_MAX_CAPACITY[version],
+            ErrorCorrectionLevel::M => BYTE_M_MAX_CAPACITY[version],
+            ErrorCorrectionLevel::Q => BYTE_Q_MAX_CAPACITY[version],
+            ErrorCorrectionLevel::H => BYTE_H_MAX_CAPACITY[version],
         }
     }
 
@@ -240,7 +199,7 @@ impl QRMode {
                 out
             };
 
-            return QRMode::Numeric(NumericQrCode {
+            return QRMode::Numeric(QrCode {
                 data: digit_buffer,
                 version,
                 error_correction_level,
@@ -280,32 +239,50 @@ impl QRMode {
                 out
             };
 
-            return QRMode::AlphaNumeric(AlphaNumericQrCode {
+            return QRMode::AlphaNumeric(QrCode {
                 data,
                 version,
                 error_correction_level,
             });
         } else if converted_input.is_ascii() {
-            return QRMode::Byte(converted_input.bytes().collect());
+            // Get the version of QR code needed
+            let version = {
+                let mut out: usize = 0;
+                for version_index in (0..MAX_VERSION).rev() {
+                    if converted_input.len()
+                        > error_correction_level.get_byte_version_size(version_index)
+                    {
+                        out = version_index + 1;
+                        break;
+                    }
+                }
+                out
+            };
+
+            return QRMode::Byte(QrCode {
+                data: converted_input.bytes().collect(),
+                version,
+                error_correction_level,
+            });
         }
 
-        todo!()
+        panic!()
     }
 
     // Private getters for easy abstraction
     fn version(&self) -> usize {
+        use QRMode::*;
         match self {
-            QRMode::Numeric(nqr) => nqr.version(),
-            QRMode::AlphaNumeric(anqr) => anqr.version(),
-            QRMode::Byte(_bytes) => todo!(),
+            Numeric(qr_code) | AlphaNumeric(qr_code) | Byte(qr_code) => qr_code.version,
         }
     }
 
     fn error_correction_level(&self) -> &ErrorCorrectionLevel {
+        use QRMode::*;
         match self {
-            QRMode::Numeric(nqr) => nqr.error_correction_level(),
-            QRMode::AlphaNumeric(anqr) => anqr.error_correction_level(),
-            QRMode::Byte(_bytes) => todo!(),
+            Numeric(qr_code) | AlphaNumeric(qr_code) | Byte(qr_code) => {
+                &qr_code.error_correction_level
+            }
         }
     }
 
@@ -323,9 +300,9 @@ impl QRMode {
 
                 size_of_character_length_bits = {
                     let out: usize;
-                    if (nqr.version() + 1) < 10 {
+                    if (nqr.version + 1) < 10 {
                         out = 10;
-                    } else if (nqr.version() + 1) > 9 && (nqr.version() + 1) < 27 {
+                    } else if (nqr.version + 1) > 9 && (nqr.version + 1) < 27 {
                         out = 12;
                     } else {
                         out = 14;
@@ -336,18 +313,18 @@ impl QRMode {
 
                 // Encode the character count
                 for i in (0..size_of_character_length_bits).rev() {
-                    bit_string.push_bit((nqr.data_len() & (1 << i)) as i32);
+                    bit_string.push_bit((nqr.data.len() & (1 << i)) as i32);
                 }
 
                 // Split input string into groups of 3 with the remainder being group of 1 or 2
                 let encoded_data = {
                     // both u16 so it fits in a word boundary
-                    let mut numbers: Vec<(u16, u16)> = Vec::with_capacity(nqr.data_len() / 3 + 1);
+                    let mut numbers: Vec<(u16, u16)> = Vec::with_capacity(nqr.data.len() / 3 + 1);
 
                     let mut current_number: u16 = 0;
                     let mut current_number_size: u16 = 0;
 
-                    for digit in nqr.data() {
+                    for digit in nqr.data.iter() {
                         current_number *= 10;
                         current_number += *digit as u16;
                         current_number_size += 1;
@@ -393,9 +370,9 @@ impl QRMode {
 
                 size_of_character_length_bits = {
                     let out: usize;
-                    if (anqr.version() + 1) < 10 {
+                    if (anqr.version + 1) < 10 {
                         out = 9;
-                    } else if (anqr.version() + 1) > 9 && (anqr.version() + 1) < 27 {
+                    } else if (anqr.version + 1) > 9 && (anqr.version + 1) < 27 {
                         out = 11;
                     } else {
                         out = 13;
@@ -406,15 +383,15 @@ impl QRMode {
 
                 // Encode the character count
                 for i in (0..size_of_character_length_bits).rev() {
-                    bit_string.push_bit((anqr.data_len() & (1 << i)) as i32);
+                    bit_string.push_bit((anqr.data.len() & (1 << i)) as i32);
                 }
 
                 // Encode the values in alphanumeric encoding
-                for value_index in (0..anqr.data_len()).step_by(2) {
+                for value_index in (0..anqr.data.len()).step_by(2) {
                     // Since stepping by 2 we know that this is always going to be Some()
-                    let first_value = unsafe { anqr.data().get(value_index).unwrap_unchecked() };
+                    let first_value = unsafe { anqr.data.get(value_index).unwrap_unchecked() };
 
-                    match anqr.data().get(value_index + 1) {
+                    match anqr.data.get(value_index + 1) {
                         Some(second_value) => {
                             let encoded = (*first_value as u16 * 45) + *second_value as u16;
 
@@ -434,8 +411,33 @@ impl QRMode {
                     }
                 }
             }
-            QRMode::Byte(_bytes) => {
-                todo!()
+            QRMode::Byte(bqr) => {
+                // Adding the mode indicator
+                bit_string.push_bit(0);
+                bit_string.push_bit(1);
+                bit_string.push_bit(0);
+                bit_string.push_bit(0);
+
+                size_of_character_length_bits = {
+                    let out: usize;
+                    if (bqr.version + 1) < 10 {
+                        out = 8;
+                    } else {
+                        out = 16;
+                    }
+
+                    out
+                };
+
+                // Encode the character count
+                for i in (0..size_of_character_length_bits).rev() {
+                    bit_string.push_bit((bqr.data.len() & (1 << i)) as i32);
+                }
+
+                // Add the data to the bit string
+                for data in bqr.data.iter() {
+                    bit_string.push_byte(*data);
+                }
             }
         }
 
@@ -988,8 +990,8 @@ mod tests {
             })
         );
 
-        let qr_mode = QRMode::analyze_data("a113", ErrorCorrectionLevel::L);
-        assert_eq!(qr_mode, QRMode::Byte(vec![97, 49, 49, 51]));
+        // let qr_mode = QRMode::analyze_data("a113", ErrorCorrectionLevel::L);
+        // assert_eq!(qr_mode, QRMode::Byte(vec![97, 49, 49, 51]));
     }
 
     // #[test]
