@@ -1,22 +1,5 @@
-// use crate::alloc::vec;
 use crate::galios::constants::*;
-// use crate::test_utils::{test_print, test_println};
-// use non_std::Vec;
-
 mod constants;
-
-// #[cfg(any(test, feature = "test_feature"))]
-// extern crate std;
-
-// #[cfg(any(test, feature = "test_feature"))]
-// #[macro_use]
-// use std::println;
-
-// #[cfg(any(test, feature = "test_feature"))]
-// #[macro_use]
-// use std::print;
-
-// #[cfg(any(test, feature = "test_feature"))]
 use std::fmt::Display;
 
 #[derive(Clone)]
@@ -148,6 +131,23 @@ impl Polynomial {
                 }
             }
             _ => self.clone(),
+        }
+    }
+
+    pub fn prepend(&mut self, value: i32) -> Self {
+        self.convert_to_integer_notation();
+
+        let mut output = PolynomialData::new(Vec::<i32>::with_capacity(self.len() + 1));
+
+        output.get_mut().push(value);
+
+        for elem in self.data.get() {
+            output.get_mut().push(*elem);
+        }
+
+        Self {
+            data: output,
+            notation: Notation::Integer,
         }
     }
 

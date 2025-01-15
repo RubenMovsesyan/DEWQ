@@ -1,15 +1,5 @@
 use super::bit::Bit;
-// use non_std::Vec;
-
-// #[cfg(any(test, feature = "test_feature"))]
-// extern crate std;
-
-// #[cfg(any(test, feature = "test_feature"))]
 use std::fmt::Display;
-
-// #[cfg(any(test, feature = "test_feature"))]
-// #[macro_use]
-// use std::format;
 
 pub struct BitString {
     bits: Vec<u8>,
@@ -23,24 +13,6 @@ impl BitString {
             bits_len: 0,
         }
     }
-
-    // pub fn from_string<'a, S>(string: S) -> Self
-    // where
-    //     S: Into<&'a str>,
-    // {
-    //     let mut output = BitString::new();
-
-    //     let str_ref: &str = string.into();
-
-    //     for character in str_ref.chars().collect::<Vec<char>>().iter() {
-    //         match character {
-    //             '0' => output.push_bit(Bit::Zero),
-    //             _ => output.push_bit(Bit::One),
-    //         }
-    //     }
-
-    //     output
-    // }
 
     pub fn from_vec(vector: Vec<u8>) -> Self {
         Self {
@@ -106,77 +78,60 @@ impl BitString {
         }
     }
 
-    // pub fn xor_with_other(&mut self, other: &BitString) -> Result<(), BitIndiciesDontMatchError> {
-    //     if self.bits_len != other.bits_len {
-    //         return Err(BitIndiciesDontMatchError);
-    //     }
-
-    //     for index in 0..self.bits.len() {
-    //         self.bits[index] ^= other.bits[index];
-    //     }
-
-    //     Ok(())
-    // }
-
     pub fn get_byte(&self, index: usize) -> u8 {
         self.bits[index]
     }
-
-    // pub fn get_bytes(&self) -> &Vec<u8> {
-    //     &self.bits
-    // }
 
     pub fn len(&self) -> usize {
         self.bits_len
     }
 
-    // pub fn as_hex(&self) -> HexStr {
-    //     let mut chars: HexStr = HexStr(Vec::new());
+    pub fn as_hex(&self) -> HexStr {
+        let mut chars: HexStr = HexStr(Vec::new());
 
-    //     let mut index = 0;
+        let mut index = 0;
 
-    //     while index < self.len() {
-    //         let mut val: u8 = 0;
-    //         for _ in 0..4 {
-    //             val <<= 1;
-    //             if let Ok(bit) = self.get_bit(index) {
-    //                 match bit {
-    //                     Bit::One => val |= 1,
-    //                     _ => {}
-    //                 }
-    //             }
-    //             index += 1;
-    //         }
+        while index < self.len() {
+            let mut val: u8 = 0;
+            for _ in 0..4 {
+                val <<= 1;
+                if let Ok(bit) = self.get_bit(index) {
+                    match bit {
+                        Bit::One => val |= 1,
+                        _ => {}
+                    }
+                }
+                index += 1;
+            }
 
-    //         // HACK: This is just a quick way to get this working
-    //         chars.0.push(match val {
-    //             0 => '0',
-    //             1 => '1',
-    //             2 => '2',
-    //             3 => '3',
-    //             4 => '4',
-    //             5 => '5',
-    //             6 => '6',
-    //             7 => '7',
-    //             8 => '8',
-    //             9 => '9',
-    //             10 => 'A',
-    //             11 => 'B',
-    //             12 => 'C',
-    //             13 => 'D',
-    //             14 => 'E',
-    //             15 => 'F',
-    //             _ => '@',
-    //         });
-    //     }
+            // HACK: This is just a quick way to get this working
+            chars.0.push(match val {
+                0 => '0',
+                1 => '1',
+                2 => '2',
+                3 => '3',
+                4 => '4',
+                5 => '5',
+                6 => '6',
+                7 => '7',
+                8 => '8',
+                9 => '9',
+                10 => 'A',
+                11 => 'B',
+                12 => 'C',
+                13 => 'D',
+                14 => 'E',
+                15 => 'F',
+                _ => '@',
+            });
+        }
 
-    //     chars
-    // }
+        chars
+    }
 }
 
 pub struct HexStr(Vec<char>);
 
-// #[cfg(any(test, feature = "test_feature"))]
 impl Display for HexStr {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let mut character_index = 0;
@@ -200,8 +155,6 @@ impl Display for HexStr {
         Ok(())
     }
 }
-
-#[cfg(any(test, feature = "test_feature"))]
 impl Display for BitString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for i in 0..self.bits_len {
@@ -221,9 +174,6 @@ impl Display for BitString {
 
 #[derive(Debug, Clone)]
 pub struct BitAddressOutOfBoundsError;
-
-// #[derive(Debug, Clone)]
-// pub struct BitIndiciesDontMatchError;
 
 #[cfg(test)]
 mod test {
@@ -276,7 +226,6 @@ mod test {
             }
         }
 
-        // println!("{}", bit_string);
         match bit_string.get_bit(50) {
             Ok(bit) => {
                 assert_eq!(bit, Bit::Zero);
@@ -319,28 +268,4 @@ mod test {
         bits.push_byte(1);
         assert_eq!("101000000001", format!("{}", bits));
     }
-
-    // #[test]
-    // fn test_xor_with_other() {
-    //     let mut bits = BitString::new();
-    //     bits.push_byte(255);
-
-    //     let mut xor_bits = BitString::new();
-    //     xor_bits.push_byte(254);
-
-    //     let _ = bits.xor_with_other(&xor_bits);
-    //     assert_eq!("00000001", format!("{}", bits));
-
-    //     bits = BitString::from_string("110010001111010");
-    //     xor_bits = BitString::from_string("011000001101000");
-
-    //     let _ = bits.xor_with_other(&xor_bits);
-    //     assert_eq!("101010000010010", format!("{}", bits));
-    // }
-
-    // #[test]
-    // fn test_bitstring_from_string() {
-    //     let bits = BitString::from_string("1110111010");
-    //     assert_eq!("1110111010", format!("{}", bits));
-    // }
 }

@@ -10,9 +10,3 @@ path = "src/lib.rs"
 [[bin]]
 name = "DEWQ_run"
 path = "src/main.rs"
-
-[dependencies]
-non_std = "0.1.4"
-
-[features]
-test_feature = []
