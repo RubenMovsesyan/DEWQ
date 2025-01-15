@@ -1,19 +1,19 @@
-use crate::alloc::vec;
+// use crate::alloc::vec;
 use crate::bit_utils::{bit::*, bit_string::*, bitmap::*};
-use crate::test_utils::{test_print, test_println};
-use crate::{galios::*, qr_code};
-use non_std::Vec;
+use crate::galios::*;
+// use crate::test_utils::{test_print, test_println};
+// use non_std::Vec;
 
-#[cfg(any(test, feature = "test_feature"))]
-extern crate std;
+// #[cfg(any(test, feature = "test_feature"))]
+// extern crate std;
 
-#[cfg(any(test, feature = "test_feature"))]
-#[macro_use]
-use std::println;
+// #[cfg(any(test, feature = "test_feature"))]
+// #[macro_use]
+// use std::println;
 
-#[cfg(any(test, feature = "test_feature"))]
-#[macro_use]
-use std::print;
+// #[cfg(any(test, feature = "test_feature"))]
+// #[macro_use]
+// use std::print;
 
 // Constants
 use crate::qr_code::constants::*;
@@ -612,12 +612,12 @@ impl QRMode {
         let mut new_bitstring = BitString::from_vec(new_data);
         new_bitstring.push_bit_times(0, REQUIRED_REMAINDER_BITS[self.version()]);
 
-        test_println!("{}", new_bitstring.as_hex());
+        // test_println!("{}", new_bitstring.as_hex());
 
         new_bitstring
     }
 
-    pub fn create_bit_map(&self, bits: BitString) {
+    pub fn create_bit_map(&self, bits: BitString) -> BitMap {
         let size = 21 + (4 * (self.version()));
 
         let mut bit_map = BitMap::new(size);
@@ -632,7 +632,9 @@ impl QRMode {
         place_data_bits(&mut bit_map, &reservations, &bits);
         mask_data(&mut bit_map, &reservations);
         add_format_information(&mut bit_map, self.error_correction_level(), self.version());
-        test_println!("{}", bit_map);
+        // test_println!("{}", bit_map);
+
+        bit_map
     }
 }
 
@@ -983,7 +985,7 @@ mod tests {
         let qr_mode = QRMode::analyze_data("A113", ErrorCorrectionLevel::L);
         assert_eq!(
             qr_mode,
-            QRMode::AlphaNumeric(AlphaNumericQrCode {
+            QRMode::AlphaNumeric(QrCode {
                 data: vec![10, 1, 1, 3],
                 version: 0,
                 error_correction_level: ErrorCorrectionLevel::L
