@@ -2,6 +2,9 @@
 name = "DEWQ"
 version = "0.0.1"
 edition = "2021"
+exclude = [
+  "test.bmp"
+]
 
 [lib]
 name = "DEWQ"
