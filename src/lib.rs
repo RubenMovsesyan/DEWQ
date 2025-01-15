@@ -1,21 +1,13 @@
 pub use bit_utils::bitmap::BitMap;
-use qr_code::{ErrorCorrectionLevel, QRMode};
+pub use qr_code::ErrorCorrectionLevel;
+use qr_code::QRMode;
 
 mod bit_utils;
 mod galios;
 mod qr_code;
 
-pub fn create_qr_code(data: &str, error_correction_level: u8) -> BitMap {
-    let mut qr_code = QRMode::analyze_data(
-        data,
-        match error_correction_level {
-            0 => ErrorCorrectionLevel::L,
-            1 => ErrorCorrectionLevel::M,
-            2 => ErrorCorrectionLevel::Q,
-            _ => ErrorCorrectionLevel::H,
-        },
-    );
-
+pub fn create_qr_code(data: &str, error_correction_level: ErrorCorrectionLevel) -> BitMap {
+    let mut qr_code = QRMode::analyze_data(data, error_correction_level);
     let mut bits = qr_code.encode();
     let qr_data = qr_code.generate_error_correction(bits);
     bits = qr_code.structure_codewords(qr_data);
@@ -29,6 +21,9 @@ mod test {
 
     #[test]
     fn test_qr_code() {
-        println!("{}", create_qr_code("Hello, World!", 2));
+        println!(
+            "{}",
+            create_qr_code("HELLO, WORLD!", ErrorCorrectionLevel::Q)
+        );
     }
 }

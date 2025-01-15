@@ -134,6 +134,23 @@ impl Polynomial {
         }
     }
 
+    pub fn prepend(&mut self, value: i32) -> Self {
+        self.convert_to_integer_notation();
+
+        let mut output = PolynomialData::new(Vec::<i32>::with_capacity(self.len() + 1));
+
+        output.get_mut().push(value);
+
+        for elem in self.data.get() {
+            output.get_mut().push(*elem);
+        }
+
+        Self {
+            data: output,
+            notation: Notation::Integer,
+        }
+    }
+
     pub fn multiply(&mut self, other: &mut Polynomial) -> Self {
         self.convert_to_exponent_notation();
         other.convert_to_exponent_notation();

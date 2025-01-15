@@ -85,8 +85,76 @@ impl BitString {
     pub fn len(&self) -> usize {
         self.bits_len
     }
+
+    pub fn as_hex(&self) -> HexStr {
+        let mut chars: HexStr = HexStr(Vec::new());
+
+        let mut index = 0;
+
+        while index < self.len() {
+            let mut val: u8 = 0;
+            for _ in 0..4 {
+                val <<= 1;
+                if let Ok(bit) = self.get_bit(index) {
+                    match bit {
+                        Bit::One => val |= 1,
+                        _ => {}
+                    }
+                }
+                index += 1;
+            }
+
+            // HACK: This is just a quick way to get this working
+            chars.0.push(match val {
+                0 => '0',
+                1 => '1',
+                2 => '2',
+                3 => '3',
+                4 => '4',
+                5 => '5',
+                6 => '6',
+                7 => '7',
+                8 => '8',
+                9 => '9',
+                10 => 'A',
+                11 => 'B',
+                12 => 'C',
+                13 => 'D',
+                14 => 'E',
+                15 => 'F',
+                _ => '@',
+            });
+        }
+
+        chars
+    }
 }
 
+pub struct HexStr(Vec<char>);
+
+impl Display for HexStr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut character_index = 0;
+
+        for elem in self.0.iter() {
+            write!(f, "{}", elem)?;
+
+            character_index += 1;
+
+            if character_index % 2 == 0 {
+                write!(f, " ")?;
+            }
+
+            if character_index % 32 == 0 {
+                writeln!(f)?;
+            }
+        }
+
+        writeln!(f)?;
+
+        Ok(())
+    }
+}
 impl Display for BitString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for i in 0..self.bits_len {

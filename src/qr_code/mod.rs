@@ -554,6 +554,10 @@ impl QRMode {
                 step += 1;
             }
 
+            while current_message.len() < message_polynomial.len() {
+                current_message = current_message.prepend(0);
+            }
+
             // Push the data to the error correction data as u8
             error_correction_data.push({
                 let mut output: Vec<u8> = Vec::new();
@@ -759,10 +763,18 @@ fn place_data_bits(bit_map: &mut BitMap, reservations: &BitMap, bits: &BitString
         };
 
         loop {
+            // if *index >= bits.len() {
+            //     break;
+            // }
+
             if reservations.get(y_pos, x_pos) == Bit::Zero {
                 bit_map.set(y_pos, x_pos, bits.get_bit(*index).unwrap());
                 *index += 1;
             }
+
+            // if *index >= bits.len() {
+            //     break;
+            // }
 
             if reservations.get(y_pos, x_pos - 1) == Bit::Zero {
                 bit_map.set(y_pos, x_pos - 1, bits.get_bit(*index).unwrap());
