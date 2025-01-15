@@ -1,14 +1,3 @@
-// #![no_std]
-
-// extern crate alloc;
-
-// #[cfg(test)]
-// extern crate std;
-
-// #[cfg(test)]
-// #[macro_use]
-// use std::println;
-
 pub use bit_utils::bitmap::BitMap;
 use qr_code::{ErrorCorrectionLevel, QRMode};
 

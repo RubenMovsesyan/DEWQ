@@ -1,22 +1,5 @@
-// use crate::alloc::vec;
 use crate::galios::constants::*;
-// use crate::test_utils::{test_print, test_println};
-// use non_std::Vec;
-
 mod constants;
-
-// #[cfg(any(test, feature = "test_feature"))]
-// extern crate std;
-
-// #[cfg(any(test, feature = "test_feature"))]
-// #[macro_use]
-// use std::println;
-
-// #[cfg(any(test, feature = "test_feature"))]
-// #[macro_use]
-// use std::print;
-
-// #[cfg(any(test, feature = "test_feature"))]
 use std::fmt::Display;
 
 #[derive(Clone)]

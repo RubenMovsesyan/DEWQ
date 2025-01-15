@@ -1,14 +1,3 @@
-// #[cfg(any(
-//         test,
-//         feature = "test_feature"
-// ))]
-// extern crate std;
-
-// #[cfg(any(
-//         test,
-//         feature = "test_feature"
-// ))]
-// use std::fmt::Display;
 use std::fmt::Display;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
