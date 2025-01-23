@@ -1,11 +1,11 @@
 [package]
 name = "DEWQ"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 exclude = [
   "test.bmp"
 ]
-description = "A qr code generator"
+description = "QR Code Generation Library"
 license = "MIT OR Apache-2.0"
 
 [lib]
