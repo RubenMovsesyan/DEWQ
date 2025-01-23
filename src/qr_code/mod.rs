@@ -1,3 +1,41 @@
+//! # QR Code Generation Module
+//!
+//! This module provides functionality for generating QR codes with support for different encoding modes and error correction levels.
+//!
+//! ## Features
+//!
+//! - Supports multiple encoding modes:
+//!   - Numeric
+//!   - Alphanumeric
+//!   - Byte
+//!
+//! - Supports various QR code versions and error correction levels
+//!
+//! ## Encoding Modes
+//!
+//! The module can automatically detect and encode data in different modes:
+//! - Numeric mode: For pure numeric data
+//! - Alphanumeric mode: For data containing alphanumeric characters
+//! - Byte mode: For ASCII data
+//!
+//! ## Error Correction
+//!
+//! Four error correction levels are supported:
+//! - L: Lowest error correction (7% recovery)
+//! - M: Medium error correction (15% recovery)
+//! - Q: Quartile error correction (25% recovery)
+//! - H: Highest error correction (30% recovery)
+//!
+//! ## Usage Example
+//!
+//! ```rust 
+//! let qr_mode = QRMode::analyze_data("HELLO WORLD", ErrorCorrectionLevel::M);
+//! let encoded_bits = qr_mode.encode();
+//! let qr_data = qr_code.generate_error_correction(encoded_bits);
+//! encoded_bits = qr_code.structure_codewords(qr_data);
+//! let bit_map = qr_mode.create_bit_map(encoded_bits); 
+//! ```
+
 use crate::bit_utils::{bit::*, bit_string::*, bitmap::*};
 use crate::galios::*;
 
@@ -6,6 +44,29 @@ use crate::qr_code::constants::*;
 
 mod constants;
 
+
+/// Represents different encoding modes for QR code generation
+///
+/// # Variants
+///
+/// * Numeric: Encodes pure numeric data
+/// * AlphaNumeric: Encodes alphanumeric data
+/// * Byte: Encodes ASCII byte data
+///
+/// # Methods
+///
+/// * analyze_data: Automatically detect the appropriate encoding mode for input data
+/// * encode: Encode the data into a bitstring
+/// * generate_error_correction: Generate error correction codes
+/// * structure_codewords: Structure the encoded data and error correction codes
+/// * create_bit_map: Create the final QR code bitmap
+///
+/// # Example
+///
+/// ```rust 
+/// let qr_mode = QRMode::analyze_data("12345", ErrorCorrectionLevel::L); 
+/// let encoded_bits = qr_mode.encode(); 
+/// ``` 
 #[derive(PartialEq, Eq, Debug)]
 pub enum QRMode {
     Numeric(QrCode),
@@ -14,23 +75,55 @@ pub enum QRMode {
     // Kanji(Vec<u16>), // Double byte mode
 }
 
+/// Represents a QR Code with its data, version, and error correction level
 #[derive(PartialEq, Eq, Debug)]
 pub struct QrCode {
+    /// Raw data bytes for the QR code
     data: Vec<u8>,
+    /// QR code version (size)
     version: usize,
+    /// Selected error correction level
     error_correction_level: ErrorCorrectionLevel,
 }
 
+
+/// Represents the error correction levels for QR codes
+///
+/// # Variants
+///
+/// * L: Lowest error correction (approximately 7% of codewords can be restored)
+/// * M: Medium error correction (approximately 15% of codewords can be restored)
+/// * Q: Quartile error correction (approximately 25% of codewords can be restored)
+/// * H: Highest error correction (approximately 30% of codewords can be restored)
+///
+/// # Methods
+///
+/// Provides methods to retrieve various parameters specific to each error correction level:
+/// * get_format_bits: Get the format bits for the error correction level
+/// * get_alpha_numeric_version_size: Get max capacity for alphanumeric encoding
+/// * get_numeric_version_size: Get max capacity for numeric encoding
+/// * get_byte_version_size: Get max capacity for byte encoding
+/// * get_num_codewords: Get number of codewords
+///
+/// # Example
+///
+/// ```rust 
+/// let max_numeric_size = ErrorCorrectionLevel::M.get_numeric_version_size(1); 
+/// ``` 
 #[derive(PartialEq, Eq, Debug)]
 pub enum ErrorCorrectionLevel {
+    /// Lowest error correction (approximately 7% of codewords can be restored)
     L,
+    /// Medium error correction (approximately 15% of codewords can be restored)
     M,
+    /// Quartile error correction (approximately 25% of codewords can be restored
     Q,
+    /// Highest error correction (approximately 30% of codewords can be restored)
     H,
 }
 
 impl ErrorCorrectionLevel {
-    pub fn get_format_bits(&self) -> u32 {
+    fn get_format_bits(&self) -> u32 {
         match self {
             ErrorCorrectionLevel::L => 0b01,
             ErrorCorrectionLevel::M => 0b00,
@@ -40,7 +133,8 @@ impl ErrorCorrectionLevel {
     }
 
     // TODO: add functionality for multiple mask patterns
-    pub fn get_format_mask_bits(&self) -> u32 {
+    #[allow(unused)]
+    fn get_format_mask_bits(&self) -> u32 {
         match self {
             ErrorCorrectionLevel::L => 0x77C4,
             ErrorCorrectionLevel::M => 0x5412,
@@ -49,7 +143,7 @@ impl ErrorCorrectionLevel {
         }
     }
 
-    pub fn get_alpha_numeric_version_size(&self, version: usize) -> usize {
+    fn get_alpha_numeric_version_size(&self, version: usize) -> usize {
         match self {
             ErrorCorrectionLevel::L => ALPHA_NUMERIC_L_MAX_CAPACITY[version],
             ErrorCorrectionLevel::M => ALPHA_NUMERIC_M_MAX_CAPACITY[version],
@@ -58,7 +152,7 @@ impl ErrorCorrectionLevel {
         }
     }
 
-    pub fn get_numeric_version_size(&self, version: usize) -> usize {
+    fn get_numeric_version_size(&self, version: usize) -> usize {
         match self {
             ErrorCorrectionLevel::L => NUMERIC_L_MAX_CAPACITY[version],
             ErrorCorrectionLevel::M => NUMERIC_M_MAX_CAPACITY[version],
@@ -67,7 +161,7 @@ impl ErrorCorrectionLevel {
         }
     }
 
-    pub fn get_byte_version_size(&self, version: usize) -> usize {
+    fn get_byte_version_size(&self, version: usize) -> usize {
         match self {
             ErrorCorrectionLevel::L => BYTE_L_MAX_CAPACITY[version],
             ErrorCorrectionLevel::M => BYTE_M_MAX_CAPACITY[version],
@@ -76,7 +170,7 @@ impl ErrorCorrectionLevel {
         }
     }
 
-    pub fn get_num_codewords(&self, version: usize) -> usize {
+    fn get_num_codewords(&self, version: usize) -> usize {
         match self {
             ErrorCorrectionLevel::L => L_NUM_CODEWORDS[version],
             ErrorCorrectionLevel::M => M_NUM_CODEWORDS[version],
@@ -85,7 +179,7 @@ impl ErrorCorrectionLevel {
         }
     }
 
-    pub fn get_block_data(&self, version: usize) -> (usize, usize, usize, usize) {
+    fn get_block_data(&self, version: usize) -> (usize, usize, usize, usize) {
         match self {
             ErrorCorrectionLevel::L => (
                 NUM_ERROR_CORRECTION_BLOCKS_GROUP_1_L[version],
@@ -114,7 +208,7 @@ impl ErrorCorrectionLevel {
         }
     }
 
-    pub fn get_num_error_correction_codewords(&self, version: usize) -> usize {
+    fn get_num_error_correction_codewords(&self, version: usize) -> usize {
         match self {
             ErrorCorrectionLevel::L => L_ERROR_CORRECTION_CODE_WORDS[version],
             ErrorCorrectionLevel::M => M_ERROR_CORRECTION_CODE_WORDS[version],
@@ -156,6 +250,16 @@ fn is_alphanumeric(input: &str) -> bool {
 // ----------------------------------------------------------
 
 impl QRMode {
+     /// Analyzes input data and determines the appropriate QR code encoding mode
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - The data to be encoded
+    /// * `error_correction_level` - The desired error correction level
+    ///
+    /// # Returns
+    ///
+    /// A `QRMode` variant representing the encoded data
     pub fn analyze_data<'a, S>(input: S, error_correction_level: ErrorCorrectionLevel) -> QRMode
     where
         S: Into<&'a str>,
@@ -272,6 +376,11 @@ impl QRMode {
         }
     }
 
+    /// Encodes the QR code data into a bitstring
+    ///
+    /// # Returns
+    ///
+    /// A `BitString` containing the encoded data
     pub fn encode(&mut self) -> BitString {
         let mut bit_string: BitString = BitString::new();
         let size_of_character_length_bits: usize;
@@ -480,6 +589,15 @@ impl QRMode {
         return bit_string;
     }
 
+    /// Generates error correction codes for the QR code data
+    ///
+    /// # Arguments
+    ///
+    /// * `bits` - The input bitstring to generate error correction for
+    ///
+    /// # Returns
+    ///
+    /// A tuple of data blocks and error correction blocks
     pub fn generate_error_correction(&self, bits: BitString) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
         let mut data: Vec<Vec<u8>> = Vec::new();
         let mut error_correction_data: Vec<Vec<u8>> = Vec::new();
@@ -573,6 +691,15 @@ impl QRMode {
         (data, error_correction_data)
     }
 
+    /// Structures the data and error correction codewords
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - A tuple of data blocks and error correction blocks
+    ///
+    /// # Returns
+    ///
+    /// A `BitString` with structured codewords
     pub fn structure_codewords(&self, data: (Vec<Vec<u8>>, Vec<Vec<u8>>)) -> BitString {
         let mut new_data: Vec<u8> = Vec::new();
 
@@ -605,6 +732,15 @@ impl QRMode {
         new_bitstring
     }
 
+    /// Creates the final QR code bitmap
+    ///
+    /// # Arguments
+    ///
+    /// * `bits` - The encoded bitstring to place in the bitmap
+    ///
+    /// # Returns
+    ///
+    /// A `BitMap` representing the complete QR code
     pub fn create_bit_map(&self, bits: BitString) -> BitMap {
         let size = 21 + (4 * (self.version()));
 

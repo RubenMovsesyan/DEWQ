@@ -86,6 +86,7 @@ impl BitString {
         self.bits_len
     }
 
+    #[allow(unused)]
     pub fn as_hex(&self) -> HexStr {
         let mut chars: HexStr = HexStr(Vec::new());
 
@@ -104,7 +105,6 @@ impl BitString {
                 index += 1;
             }
 
-            // HACK: This is just a quick way to get this working
             chars.0.push(match val {
                 0 => '0',
                 1 => '1',

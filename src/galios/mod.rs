@@ -211,6 +211,7 @@ impl Polynomial {
         }
     }
 
+    #[allow(unused)]
     pub fn drop_leading_zeros(&mut self) {
         self.convert_to_integer_notation();
         let mut new = PolynomialData::new(Vec::<i32>::with_capacity(self.len()));
